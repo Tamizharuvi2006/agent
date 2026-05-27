@@ -42,7 +42,8 @@ Phase 0 runtime is honestly closed.
 | LLM adapter | OpenAI-compatible chat, mock model, signature retry |
 | Temporal | Required dependency, workflow/activity integration, parity test |
 | Live Temporal proof | Completed against SDK-managed local Temporal dev server |
-| Deep research product | Not started |
+| Phase 1 API/CLI | Started: FastAPI shell, API keys, local run store, Typer CLI |
+| Deep research product | Mock-backed vertical slice only |
 | SaaS deployment | Not started |
 
 ## Install
@@ -151,9 +152,9 @@ This is not yet a deep research product. The runtime is the chassis, not the car
 
 Still missing for a product:
 
-- FastAPI service
-- CLI product commands
-- API keys and auth
+- production FastAPI deployment and background worker mode
+- HTTP-backed CLI mode and config profiles
+- production API key management and user auth
 - Postgres persistence
 - real web/search/browser tools
 - knowledge graph
@@ -161,6 +162,18 @@ Still missing for a product:
 - eval harness and self-learning loop
 - hosted deployment
 - billing and user management
+
+Started in Phase 1:
+
+- `GET /health`
+- `POST /v1/runs`
+- `GET /v1/runs/{run_id}`
+- `x-api-key` authentication
+- local in-memory run store
+- `prime-swarm health`
+- `prime-swarm research "question"`
+
+The Phase 1 run path is intentionally mock-backed. It proves the public contract before real search, Postgres, and product workflows are added.
 
 ## Examples
 
@@ -176,7 +189,7 @@ Still missing for a product:
 Latest validation:
 
 ```text
-45 tests passed
+51 tests passed
 ```
 
 Live Temporal proof:
@@ -209,8 +222,41 @@ Recommended next path:
 
 1. Publish the runtime as OSS.
 2. Build the deep research agent on top.
-3. Add FastAPI and CLI.
-4. Add product-grade persistence and API keys.
+3. Replace Phase 1 mock research with real search/retrieval.
+4. Add Postgres persistence.
 5. Add real browser/search/knowledge-graph integrations.
 6. Add eval harness and self-learning.
 
+## Phase 1 API
+
+Create the app:
+
+```python
+from prime_swarm_core.api import create_app
+
+app = create_app()
+```
+
+Run locally:
+
+```powershell
+$env:PRIME_SWARM_API_KEY='dev-key'
+uvicorn prime_swarm_core.api.app:app --reload
+```
+
+Create a run:
+
+```powershell
+curl -X POST http://127.0.0.1:8000/v1/runs `
+  -H "x-api-key: dev-key" `
+  -H "content-type: application/json" `
+  -d "{\"question\":\"What is the heist rule?\"}"
+```
+
+CLI:
+
+```powershell
+prime-swarm health
+prime-swarm research "What is the heist rule?"
+prime-swarm research "What is the heist rule?" --json
+```

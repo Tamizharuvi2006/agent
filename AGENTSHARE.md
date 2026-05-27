@@ -208,7 +208,7 @@ All three examples completed successfully.
 
 The goal is not speed through imports. The goal is a clean local architecture with borrowed wisdom, clear credit, and tests proving our code works.
 
-For the next implementation pass, the best candidates are a CLI, richer deep-research examples, or a small FastAPI surface.
+For the next implementation pass, the best candidates are a persistent RunStore, HTTP-backed CLI mode, real search/retrieval inside the research graph, or a FastAPI smoke test that starts the app through Uvicorn.
 
 ## Public Launch State
 
@@ -221,6 +221,33 @@ Public-facing docs were added:
 - `docs/LAUNCH_POSTS.md`
 
 These docs position the project honestly as a runtime foundation, not a finished deep research product or SaaS.
+
+## Phase 1 Plan State
+
+Phase 1 started after the runtime push.
+
+Plan document:
+
+- `architecture/report/2026-05-27-phase1-api-cli-plan.md`
+
+Scope:
+
+- FastAPI service shell: implemented.
+- Typer CLI shell: implemented.
+- API key dependency: implemented.
+- run create/get schemas: implemented.
+- local in-memory run store with Postgres-ready protocol: implemented.
+- simple mock-backed research graph exposed through API and CLI: implemented.
+
+Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
+
+Phase 1 validation:
+
+```powershell
+$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+```
+
+Latest result: 51 tests passed.
 
 ## Temporal State
 

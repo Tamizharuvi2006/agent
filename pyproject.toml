@@ -5,9 +5,16 @@ description = "A small Python runtime for deep research agents: graph commands, 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "fastapi>=0.100",
+  "httpx>=0.28",
   "pydantic>=2.0",
   "temporalio>=1.0",
+  "typer>=0.12",
+  "uvicorn>=0.30",
 ]
+
+[project.scripts]
+prime-swarm = "prime_swarm_core.cli.main:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
