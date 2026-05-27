@@ -23,7 +23,7 @@ async def health() -> HealthResponse:
 
 @router.post("/v1/runs", response_model=RunResponse, dependencies=[Depends(require_api_key)])
 async def create_run(payload: CreateRunRequest, store: RunStore = Depends(get_store)) -> RunResponse:
-    record = await run_research(payload.question, store)
+    record = await run_research(payload.question, store, source_path=payload.source_path, top_k=payload.top_k)
     return RunResponse(**record.as_dict())
 
 
@@ -33,4 +33,3 @@ async def get_run(run_id: str, store: RunStore = Depends(get_store)) -> RunRespo
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="run not found")
     return RunResponse(**record.as_dict())
-

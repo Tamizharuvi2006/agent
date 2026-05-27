@@ -35,7 +35,7 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 59 passing |
+| Tests | 62 passing |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
@@ -43,7 +43,7 @@ Phase 0 runtime is honestly closed.
 | Temporal | Required dependency, workflow/activity integration, parity test |
 | Live Temporal proof | Completed against SDK-managed local Temporal dev server |
 | Phase 1 API/CLI | Started: FastAPI shell, API keys, SQLite/local run store, local/HTTP Typer CLI |
-| Deep research product | Mock-backed vertical slice only |
+| Deep research product | Local retrieval vertical slice only |
 | SaaS deployment | Not started |
 
 ## Install
@@ -174,8 +174,9 @@ Started in Phase 1:
 - `prime-swarm research "question"`
 - `prime-swarm health --api-url http://127.0.0.1:8000`
 - `prime-swarm research "question" --api-url http://127.0.0.1:8000 --api-key dev-key`
+- local file/directory retrieval through `source_path` or CLI `--source`
 
-The Phase 1 run path is intentionally mock-backed. It proves the public contract before real search, Postgres, and product workflows are added. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
+The Phase 1 run path now supports local file and directory retrieval. It still does not call a live web search provider. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
 
 ## Examples
 
@@ -191,7 +192,7 @@ The Phase 1 run path is intentionally mock-backed. It proves the public contract
 Latest validation:
 
 ```text
-59 tests passed
+62 tests passed
 ```
 
 Live Temporal proof:
@@ -256,13 +257,23 @@ curl -X POST http://127.0.0.1:8000/v1/runs `
   -d "{\"question\":\"What is the heist rule?\"}"
 ```
 
+Create a source-backed run:
+
+```powershell
+curl -X POST http://127.0.0.1:8000/v1/runs `
+  -H "x-api-key: dev-key" `
+  -H "content-type: application/json" `
+  -d "{\"question\":\"What is the heist rule?\",\"source_path\":\"docs\"}"
+```
+
 CLI:
 
 ```powershell
 prime-swarm health
 prime-swarm research "What is the heist rule?"
 prime-swarm research "What is the heist rule?" --json
+prime-swarm research "What is the heist rule?" --source docs --json
 prime-swarm research "What is the heist rule?" --db data/runs.sqlite --json
 prime-swarm health --api-url http://127.0.0.1:8000
-prime-swarm research "What is the heist rule?" --api-url http://127.0.0.1:8000 --api-key dev-key --json
+prime-swarm research "What is the heist rule?" --source docs --api-url http://127.0.0.1:8000 --api-key dev-key --json
 ```

@@ -28,8 +28,17 @@ class PrimeSwarmHttpClient:
     def health(self) -> dict[str, Any]:
         return self._request("GET", "/health")
 
-    def create_run(self, question: str) -> dict[str, Any]:
-        return self._request("POST", "/v1/runs", json={"question": question})
+    def create_run(
+        self,
+        question: str,
+        *,
+        source_path: str | None = None,
+        top_k: int = 4,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"question": question, "top_k": top_k}
+        if source_path:
+            payload["source_path"] = source_path
+        return self._request("POST", "/v1/runs", json=payload)
 
     def _request(self, method: str, path: str, *, json: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {"x-api-key": self.api_key} if self.api_key else {}

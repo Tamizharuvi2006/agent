@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 from prime_swarm_core.api import create_app
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.cli.main import app as cli_app
-from prime_swarm_core.product import InMemoryRunStore, RunRecord, SQLiteRunStore
+from prime_swarm_core.product import InMemoryRunStore, RunRecord, SQLiteRunStore, run_research
 
 
 class TestPhase1Api(unittest.TestCase):
@@ -78,6 +78,24 @@ class TestPhase1Api(unittest.TestCase):
         self.assertIsNotNone(restored)
         self.assertEqual(restored.question, "What persists?")
 
+    def test_create_run_can_use_local_source_path(self) -> None:
+        client = TestClient(create_app(InMemoryRunStore()))
+        headers = {"x-api-key": "dev-key"}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = Path(tmpdir) / "notes.md"
+            source.write_text("# Heist Rule\nSteal patterns, not packages.", encoding="utf-8")
+
+            response = client.post(
+                "/v1/runs",
+                json={"question": "What should we steal?", "source_path": str(source)},
+                headers=headers,
+            )
+            payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Steal patterns", payload["result"]["evidence"])
+        self.assertEqual(payload["result"]["sources"][0]["title"], "Heist Rule")
+
 
 class TestPhase1Cli(unittest.TestCase):
     def test_cli_health(self) -> None:
@@ -111,6 +129,19 @@ class TestPhase1Cli(unittest.TestCase):
         self.assertIsNotNone(restored)
         self.assertEqual(restored.question, "Persist me")
 
+    def test_cli_research_can_use_local_source(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = Path(tmpdir) / "research.md"
+            source.write_text("# Runtime\nSQLite stores run records durably.", encoding="utf-8")
+
+            result = runner.invoke(cli_app, ["research", "What stores records?", "--source", str(source), "--json"])
+            payload = json.loads(result.stdout)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("SQLite stores run records", payload["result"]["evidence"])
+        self.assertEqual(payload["result"]["sources"][0]["title"], "Runtime")
+
     def test_cli_health_can_call_http_api(self) -> None:
         runner = CliRunner()
 
@@ -138,23 +169,37 @@ class TestPhase1Cli(unittest.TestCase):
             client_type.return_value.create_run.return_value = api_payload
             result = runner.invoke(
                 cli_app,
-                ["research", "Remote question", "--api-url", "http://api.test", "--api-key", "secret", "--json"],
+                [
+                    "research",
+                    "Remote question",
+                    "--api-url",
+                    "http://api.test",
+                    "--api-key",
+                    "secret",
+                    "--source",
+                    "docs",
+                    "--top-k",
+                    "3",
+                    "--json",
+                ],
             )
             payload = json.loads(result.stdout)
 
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(payload["run_id"], "run-http")
         client_type.assert_called_once_with("http://api.test", api_key="secret")
-        client_type.return_value.create_run.assert_called_once_with("Remote question")
+        client_type.return_value.create_run.assert_called_once_with("Remote question", source_path="docs", top_k=3)
 
 
 class TestCliHttpClient(unittest.TestCase):
     def test_http_client_creates_run_with_api_key(self) -> None:
         seen: dict[str, str] = {}
+        body: dict[str, object] = {}
 
         def handler(request: httpx.Request) -> httpx.Response:
             seen["path"] = request.url.path
             seen["api_key"] = request.headers["x-api-key"]
+            body.update(json.loads(request.content))
             return httpx.Response(
                 200,
                 json={
@@ -174,10 +219,11 @@ class TestCliHttpClient(unittest.TestCase):
             transport=httpx.MockTransport(handler),
         )
 
-        payload = client.create_run("q")
+        payload = client.create_run("q", source_path="docs", top_k=3)
 
         self.assertEqual(payload["run_id"], "run-1")
         self.assertEqual(seen, {"path": "/v1/runs", "api_key": "secret"})
+        self.assertEqual(body, {"question": "q", "source_path": "docs", "top_k": 3})
 
     def test_http_client_raises_helpful_status_error(self) -> None:
         client = PrimeSwarmHttpClient(
@@ -212,6 +258,22 @@ class TestSQLiteRunStore(unittest.TestCase):
             store = SQLiteRunStore(Path(tmpdir) / "runs.sqlite")
 
             self.assertEqual(store.schema(), "1")
+
+
+class TestLocalResearchRetrieval(unittest.TestCase):
+    def test_run_research_uses_local_sources_as_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = Path(tmpdir) / "rules.md"
+            source.write_text(
+                "# Heist Manifest\nSteal patterns, not packages.\nCredit sources in docs.",
+                encoding="utf-8",
+            )
+
+            record = asyncio.run(run_research("What do we steal?", InMemoryRunStore(), source_path=source))
+
+        self.assertEqual(record.status, "completed")
+        self.assertIn("Steal patterns", record.result["evidence"])
+        self.assertEqual(record.result["sources"][0]["title"], "Heist Manifest")
 
 
 if __name__ == "__main__":

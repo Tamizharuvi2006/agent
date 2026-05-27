@@ -13,6 +13,8 @@ class HealthResponse(BaseModel):
 
 class CreateRunRequest(BaseModel):
     question: str = Field(min_length=1)
+    source_path: str | None = None
+    top_k: int = Field(default=4, ge=1, le=20)
 
 
 class RunResponse(BaseModel):
@@ -23,4 +25,3 @@ class RunResponse(BaseModel):
     error: str | None = None
     created_at: str
     updated_at: str
-
