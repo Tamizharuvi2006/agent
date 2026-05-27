@@ -10,6 +10,7 @@ from uuid import uuid4
 from prime_swarm_core.data import Document, load_directory, load_file, markdown_split, recursive_split
 from prime_swarm_core.graph import Command, GraphRunner
 from prime_swarm_core.llm import MockChatModel, call_signature
+from prime_swarm_core.product.browser import BrowserProvider, HTTPHTMLBrowserProvider
 from prime_swarm_core.product.runs import RunRecord, RunStore
 from prime_swarm_core.product.search import SearchProvider, SearchProviderNotConfigured
 from prime_swarm_core.prompts import FieldSpec, Signature
@@ -32,6 +33,8 @@ async def run_research(
     *,
     run_id: str | None = None,
     source_path: str | Path | None = None,
+    browser_url: str | None = None,
+    browser_provider: BrowserProvider | None = None,
     search_provider: SearchProvider | None = None,
     use_web_search: bool = False,
     top_k: int = 4,
@@ -47,6 +50,8 @@ async def run_research(
         evidence, sources = await _retrieve_evidence(
             state.values["question"],
             source_path=source_path,
+            browser_url=browser_url,
+            browser_provider=browser_provider,
             search_provider=search_provider,
             use_web_search=use_web_search,
             top_k=top_k,
@@ -86,10 +91,15 @@ async def _retrieve_evidence(
     question: str,
     *,
     source_path: str | Path | None,
+    browser_url: str | None,
+    browser_provider: BrowserProvider | None,
     search_provider: SearchProvider | None,
     use_web_search: bool,
     top_k: int,
 ) -> tuple[str, list[dict[str, object]]]:
+    if browser_url:
+        return await _retrieve_browser_evidence(browser_url, browser_provider=browser_provider)
+
     if use_web_search:
         return await _retrieve_web_evidence(question, search_provider=search_provider, top_k=top_k)
 
@@ -131,6 +141,25 @@ async def _retrieve_evidence(
             )
             seen_sources.add(source)
     return "\n\n".join(evidence_lines), sources
+
+
+async def _retrieve_browser_evidence(
+    browser_url: str,
+    *,
+    browser_provider: BrowserProvider | None,
+) -> tuple[str, list[dict[str, object]]]:
+    provider = browser_provider or HTTPHTMLBrowserProvider()
+    page = await provider.fetch(browser_url)
+    evidence = f"[1] {page.title}: {page.text}"
+    sources: list[dict[str, object]] = [
+        {
+            "source": page.url,
+            "title": page.title,
+            "rank": 1,
+            "kind": "browser",
+        }
+    ]
+    return evidence, sources
 
 
 async def _retrieve_web_evidence(

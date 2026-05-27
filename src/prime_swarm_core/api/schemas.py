@@ -14,6 +14,7 @@ class HealthResponse(BaseModel):
 class CreateRunRequest(BaseModel):
     question: str = Field(min_length=1)
     source_path: str | None = None
+    browser_url: str | None = None
     use_web_search: bool = False
     top_k: int = Field(default=4, ge=1, le=20)
 

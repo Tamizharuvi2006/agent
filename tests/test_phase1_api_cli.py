@@ -16,10 +16,13 @@ from prime_swarm_core.cli.config import CliProfileUpdate, delete_profile, list_p
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.cli.main import app as cli_app
 from prime_swarm_core.product import (
+    BrowserPage,
+    HTTPHTMLBrowserProvider,
     HTTPJSONSearchProvider,
     InMemoryRunStore,
     RunRecord,
     SQLiteRunStore,
+    StaticBrowserProvider,
     StaticSearchProvider,
     run_research,
 )
@@ -130,6 +133,30 @@ class TestPhase1Api(unittest.TestCase):
         self.assertIn("External web search", payload["result"]["evidence"])
         self.assertEqual(payload["result"]["sources"][0]["source"], "https://docs.example.com/runtime")
 
+    def test_create_run_can_use_browser_provider(self) -> None:
+        provider = StaticBrowserProvider(
+            {
+                "https://example.test/page": BrowserPage(
+                    url="https://example.test/page",
+                    title="Browser Page",
+                    text="Browser evidence can feed the research graph.",
+                )
+            }
+        )
+        client = TestClient(create_app(InMemoryRunStore(), browser_provider=provider))
+
+        response = client.post(
+            "/v1/runs",
+            json={"question": "What feeds the graph?", "browser_url": "https://example.test/page"},
+            headers={"x-api-key": "dev-key"},
+        )
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["status"], "completed")
+        self.assertIn("Browser evidence", payload["result"]["evidence"])
+        self.assertEqual(payload["result"]["sources"][0]["kind"], "browser")
+
     def test_web_search_without_provider_is_reported_honestly(self) -> None:
         client = TestClient(create_app(InMemoryRunStore()))
 
@@ -226,6 +253,8 @@ class TestPhase1Cli(unittest.TestCase):
                     "secret",
                     "--source",
                     "docs",
+                    "--browser-url",
+                    "https://example.test/page",
                     "--top-k",
                     "3",
                     "--web",
@@ -240,6 +269,7 @@ class TestPhase1Cli(unittest.TestCase):
         client_type.return_value.create_run.assert_called_once_with(
             "Remote question",
             source_path="docs",
+            browser_url="https://example.test/page",
             use_web_search=True,
             top_k=3,
         )
@@ -325,6 +355,8 @@ class TestPhase1Cli(unittest.TestCase):
                     "data/runs.sqlite",
                     "--source",
                     "docs",
+                    "--browser-url",
+                    "https://example.test/page",
                     "--web",
                     "--top-k",
                     "3",
@@ -338,6 +370,7 @@ class TestPhase1Cli(unittest.TestCase):
         self.assertEqual(profile.api_key, "secret")
         self.assertEqual(profile.db, Path("data/runs.sqlite"))
         self.assertEqual(profile.source, Path("docs"))
+        self.assertEqual(profile.browser_url, "https://example.test/page")
         self.assertTrue(profile.web)
         self.assertEqual(profile.top_k, 3)
 
@@ -404,6 +437,7 @@ class TestCliConfig(unittest.TestCase):
                                 "api_key": "secret",
                                 "db": "data/runs.sqlite",
                                 "source": "docs",
+                                "browser_url": "https://example.test/page",
                                 "web": True,
                                 "top_k": 3,
                             }
@@ -419,6 +453,7 @@ class TestCliConfig(unittest.TestCase):
         self.assertEqual(profile.api_key, "secret")
         self.assertEqual(profile.db, Path("data/runs.sqlite"))
         self.assertEqual(profile.source, Path("docs"))
+        self.assertEqual(profile.browser_url, "https://example.test/page")
         self.assertTrue(profile.web)
         self.assertEqual(profile.top_k, 3)
 
@@ -484,11 +519,26 @@ class TestCliHttpClient(unittest.TestCase):
             transport=httpx.MockTransport(handler),
         )
 
-        payload = client.create_run("q", source_path="docs", use_web_search=True, top_k=3)
+        payload = client.create_run(
+            "q",
+            source_path="docs",
+            browser_url="https://example.test/page",
+            use_web_search=True,
+            top_k=3,
+        )
 
         self.assertEqual(payload["run_id"], "run-1")
         self.assertEqual(seen, {"path": "/v1/runs", "api_key": "secret"})
-        self.assertEqual(body, {"question": "q", "source_path": "docs", "top_k": 3, "use_web_search": True})
+        self.assertEqual(
+            body,
+            {
+                "question": "q",
+                "source_path": "docs",
+                "browser_url": "https://example.test/page",
+                "top_k": 3,
+                "use_web_search": True,
+            },
+        )
 
     def test_http_client_raises_helpful_status_error(self) -> None:
         client = PrimeSwarmHttpClient(
@@ -600,6 +650,54 @@ class TestExternalWebSearch(unittest.TestCase):
         self.assertEqual(results[0].url, "https://example.com/a")
         self.assertEqual(seen["authorization"], "Bearer search-key")
         self.assertEqual(seen["body"], {"query": "alpha", "k": 2})
+
+
+class TestBrowserIntegration(unittest.TestCase):
+    def test_run_research_uses_browser_page_as_evidence(self) -> None:
+        provider = StaticBrowserProvider(
+            {
+                "https://example.test/page": BrowserPage(
+                    url="https://example.test/page",
+                    title="Browser Page",
+                    text="Browser page evidence is readable.",
+                )
+            }
+        )
+
+        record = asyncio.run(
+            run_research(
+                "What evidence is readable?",
+                InMemoryRunStore(),
+                browser_url="https://example.test/page",
+                browser_provider=provider,
+            )
+        )
+
+        self.assertEqual(record.status, "completed")
+        self.assertIn("Browser page evidence", record.result["evidence"])
+        self.assertEqual(record.result["sources"][0]["kind"], "browser")
+
+    def test_http_html_browser_provider_extracts_text(self) -> None:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                html="""
+                <html>
+                  <head><title>Example Page</title><style>.x{}</style></head>
+                  <body><h1>Readable Heading</h1><script>ignore()</script><p>Readable body.</p></body>
+                </html>
+                """,
+                request=request,
+            )
+
+        provider = HTTPHTMLBrowserProvider(transport=httpx.MockTransport(handler))
+
+        page = asyncio.run(provider.fetch("https://example.test/page"))
+
+        self.assertEqual(page.title, "Example Page")
+        self.assertIn("Readable Heading", page.text)
+        self.assertIn("Readable body", page.text)
+        self.assertNotIn("ignore", page.text)
 
 
 if __name__ == "__main__":

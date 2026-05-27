@@ -259,8 +259,14 @@ Scope:
 - CLI `profile-set`: implemented.
 - CLI `profile-list`: implemented.
 - CLI `profile-delete`: implemented.
+- Browser/page ingestion provider boundary: implemented.
+- HTTP HTML browser provider: implemented.
+- Static browser provider for deterministic tests: implemented.
+- API `browser_url`: implemented.
+- CLI `--browser-url`: implemented.
+- CLI profile `browser_url`: implemented.
 
-Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
+Do not claim Postgres, hosted SaaS, a live vendor search run, or full browser automation until those are actually wired. Browser page ingestion is implemented, but interactive browser sessions, JS execution, clicking, typing, screenshots, and authenticated browsing are not.
 
 Phase 1 validation:
 
@@ -268,7 +274,7 @@ Phase 1 validation:
 $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 78 tests passed.
+Latest result: 81 tests discovered, 80 tests passed, 1 skipped.
 
 Live search smoke command:
 
@@ -280,6 +286,13 @@ Live API smoke command:
 
 ```powershell
 $env:PYTHONPATH='src'; python -m unittest tests.test_phase1_live_api_smoke -v
+```
+
+Browser/page ingestion examples:
+
+```powershell
+$env:PYTHONPATH='src'; prime-swarm research "What is the heist rule?" --browser-url https://example.com --json
+$env:PYTHONPATH='src'; prime-swarm research "What is the heist rule?" --browser-url https://example.com --api-url http://127.0.0.1:8000 --api-key dev-key --json
 ```
 
 ## Temporal State

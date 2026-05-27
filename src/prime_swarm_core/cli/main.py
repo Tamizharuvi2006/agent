@@ -59,6 +59,7 @@ def profile_set(
     api_key: str | None = typer.Option(None, "--api-key", help="Default API key."),
     db: Path | None = typer.Option(None, "--db", help="Default SQLite run database."),
     source: Path | None = typer.Option(None, "--source", help="Default local source file or directory."),
+    browser_url: str | None = typer.Option(None, "--browser-url", help="Default browser/page URL."),
     web: bool | None = typer.Option(None, "--web/--no-web", help="Default web search mode."),
     top_k: int | None = typer.Option(None, "--top-k", min=1, max=20, help="Default retrieval count."),
 ) -> None:
@@ -71,6 +72,7 @@ def profile_set(
                 api_key=api_key,
                 db=db,
                 source=source,
+                browser_url=browser_url,
                 web=web,
                 top_k=top_k,
             ),
@@ -108,6 +110,7 @@ def research(
     api_url: str | None = typer.Option(None, "--api-url", help="Call a running API service."),
     api_key: str | None = typer.Option(None, "--api-key", help="API key for HTTP mode."),
     source: Path | None = typer.Option(None, "--source", help="Read evidence from this local file or directory."),
+    browser_url: str | None = typer.Option(None, "--browser-url", help="Read evidence from this web page URL."),
     web: bool = typer.Option(False, "--web", help="Use configured external web search."),
     top_k: int | None = typer.Option(None, "--top-k", min=1, max=20, help="Number of source chunks to retrieve."),
     profile: str | None = typer.Option(None, "--profile", help="Read defaults from this config profile."),
@@ -119,6 +122,7 @@ def research(
     resolved_api_key = api_key or os.getenv("PRIME_SWARM_API_KEY") or profile_config.api_key or "dev-key"
     resolved_db = db or profile_config.db
     resolved_source = source or profile_config.source
+    resolved_browser_url = browser_url or profile_config.browser_url
     resolved_web = web or profile_config.web
     resolved_top_k = top_k or profile_config.top_k or 4
 
@@ -130,6 +134,7 @@ def research(
             ).create_run(
                 question,
                 source_path=str(resolved_source) if resolved_source else None,
+                browser_url=resolved_browser_url,
                 use_web_search=resolved_web,
                 top_k=resolved_top_k,
             )
@@ -141,6 +146,7 @@ def research(
                     question,
                     store,
                     source_path=resolved_source,
+                    browser_url=resolved_browser_url,
                     use_web_search=resolved_web,
                     top_k=resolved_top_k,
                 )

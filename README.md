@@ -35,7 +35,7 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 78 passing |
+| Tests | 81 discovered, 80 passing, 1 skipped |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
@@ -45,7 +45,7 @@ Phase 0 runtime is honestly closed.
 | Live API proof | Uvicorn smoke test covers real HTTP API plus HTTP CLI |
 | Live search proof | Gated smoke harness added; requires provider env vars |
 | Phase 1 API/CLI | Started: FastAPI shell, API keys, SQLite/local run store, local/HTTP Typer CLI, config profiles |
-| Deep research product | Local retrieval plus provider-backed web-search vertical slice |
+| Deep research product | Local retrieval plus provider-backed web search and browser page-ingestion vertical slices |
 | SaaS deployment | Not started |
 
 ## Install
@@ -158,7 +158,8 @@ Still missing for a product:
 - secret manager integration
 - production API key management and user auth
 - Postgres persistence
-- live vendor web search run and browser tools
+- live vendor web search run
+- full browser automation with sessions, clicks, forms, screenshots, and JS execution
 - knowledge graph
 - multi-agent debate wired into product workflows
 - eval harness and self-learning loop
@@ -178,11 +179,12 @@ Started in Phase 1:
 - `prime-swarm research "question" --api-url http://127.0.0.1:8000 --api-key dev-key`
 - local file/directory retrieval through `source_path` or CLI `--source`
 - external HTTP JSON web search through `use_web_search` or CLI `--web`
+- browser page ingestion through `browser_url` or CLI `--browser-url`
 - CLI config profiles through `--profile` and `--config`
 - CLI config writer through `profile-set`
 - CLI profile listing/deletion through `profile-list` and `profile-delete`
 
-The Phase 1 run path now supports local file/directory retrieval and a vendor-neutral HTTP JSON search provider. A gated live search smoke test exists, but it only runs when provider environment variables are set. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
+The Phase 1 run path now supports local file/directory retrieval, a vendor-neutral HTTP JSON search provider, and HTTP HTML page ingestion. A gated live search smoke test exists, but it only runs when provider environment variables are set. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
 
 ## Examples
 
@@ -198,7 +200,9 @@ The Phase 1 run path now supports local file/directory retrieval and a vendor-ne
 Latest validation:
 
 ```text
-78 tests passed
+81 tests discovered
+80 tests passed
+1 test skipped
 ```
 
 Live Temporal proof:
@@ -303,6 +307,7 @@ prime-swarm research "What is the heist rule?"
 prime-swarm research "What is the heist rule?" --json
 prime-swarm research "What is the heist rule?" --source docs --json
 prime-swarm research "What is the heist rule?" --web --json
+prime-swarm research "What is the heist rule?" --browser-url https://example.com --json
 prime-swarm research "What is the heist rule?" --db data/runs.sqlite --json
 prime-swarm research "What is the heist rule?" --profile local --config .prime-swarm.json --json
 prime-swarm health --api-url http://127.0.0.1:8000
@@ -316,6 +321,7 @@ prime-swarm profile-set local `
   --config .prime-swarm.json `
   --db data/runs.sqlite `
   --source docs `
+  --browser-url https://example.com `
   --top-k 4
 
 prime-swarm profile-set api `
@@ -337,6 +343,7 @@ Example CLI config:
     "local": {
       "db": "data/runs.sqlite",
       "source": "docs",
+      "browser_url": "https://example.com",
       "top_k": 4
     },
     "api": {

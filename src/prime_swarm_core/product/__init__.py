@@ -1,5 +1,12 @@
 """Product-layer services."""
 
+from prime_swarm_core.product.browser import (
+    BrowserPage,
+    BrowserProvider,
+    BrowserProviderError,
+    HTTPHTMLBrowserProvider,
+    StaticBrowserProvider,
+)
 from prime_swarm_core.product.research import run_research
 from prime_swarm_core.product.runs import InMemoryRunStore, RunRecord, RunStatus, RunStore, SQLiteRunStore
 from prime_swarm_core.product.search import (
@@ -12,6 +19,10 @@ from prime_swarm_core.product.search import (
 
 __all__ = [
     "HTTPJSONSearchProvider",
+    "BrowserPage",
+    "BrowserProvider",
+    "BrowserProviderError",
+    "HTTPHTMLBrowserProvider",
     "InMemoryRunStore",
     "RunRecord",
     "RunStatus",
@@ -21,5 +32,6 @@ __all__ = [
     "SearchProviderNotConfigured",
     "SQLiteRunStore",
     "StaticSearchProvider",
+    "StaticBrowserProvider",
     "run_research",
 ]

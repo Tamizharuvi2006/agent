@@ -22,6 +22,7 @@ class CliProfile:
     api_key: str | None = None
     db: Path | None = None
     source: Path | None = None
+    browser_url: str | None = None
     web: bool = False
     top_k: int | None = None
 
@@ -32,6 +33,7 @@ class CliProfileUpdate:
     api_key: str | None = None
     db: Path | None = None
     source: Path | None = None
+    browser_url: str | None = None
     web: bool | None = None
     top_k: int | None = None
 
@@ -135,6 +137,7 @@ def _parse_profile(raw: dict[str, Any]) -> CliProfile:
         api_key=_optional_str(raw.get("api_key")),
         db=_optional_path(raw.get("db")),
         source=_optional_path(raw.get("source")),
+        browser_url=_optional_str(raw.get("browser_url")),
         web=bool(raw.get("web", False)),
         top_k=top_k,
     )
@@ -162,6 +165,8 @@ def _update_to_dict(update: CliProfileUpdate) -> dict[str, Any]:
         data["db"] = str(update.db)
     if update.source is not None:
         data["source"] = str(update.source)
+    if update.browser_url is not None:
+        data["browser_url"] = update.browser_url
     if update.web is not None:
         data["web"] = update.web
     if update.top_k is not None:
