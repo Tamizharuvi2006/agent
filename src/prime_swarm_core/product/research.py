@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from prime_swarm_core.data import Document, load_directory, load_file, markdown_split, recursive_split
 from prime_swarm_core.graph import Command, GraphRunner
-from prime_swarm_core.llm import MockChatModel, call_signature
+from prime_swarm_core.llm import ChatModel, MockChatModel, call_signature, create_chat_model
 from prime_swarm_core.product.browser import BrowserProvider, HTTPHTMLBrowserProvider
 from prime_swarm_core.product.runs import RunRecord, RunStore
 from prime_swarm_core.product.search import SearchProvider, SearchProviderNotConfigured
@@ -36,6 +36,11 @@ async def run_research(
     browser_url: str | None = None,
     browser_provider: BrowserProvider | None = None,
     search_provider: SearchProvider | None = None,
+    chat_model: ChatModel | None = None,
+    use_llm: bool = False,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
+    llm_base_url: str | None = None,
     use_web_search: bool = False,
     top_k: int = 4,
 ) -> RunRecord:
@@ -43,7 +48,13 @@ async def run_research(
     created = RunRecord(run_id=run_id, question=question, status="running")
     await store.put(created)
 
-    model = MockChatModel([{"answer": f"Mock research answer for: {question}", "confidence": 0.8}])
+    model = chat_model or _default_chat_model(
+        question,
+        use_llm=use_llm,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        llm_base_url=llm_base_url,
+    )
     signature = _signature()
 
     async def search_node(state):
@@ -85,6 +96,19 @@ async def run_research(
         failed = replace(created, status="failed", error=str(exc), updated_at=datetime.now(timezone.utc))
         await store.put(failed)
         return failed
+
+
+def _default_chat_model(
+    question: str,
+    *,
+    use_llm: bool,
+    llm_provider: str | None,
+    llm_model: str | None,
+    llm_base_url: str | None,
+) -> ChatModel:
+    if use_llm:
+        return create_chat_model(provider=llm_provider, model=llm_model, base_url=llm_base_url)
+    return MockChatModel([{"answer": f"Mock research answer for: {question}", "confidence": 0.8}])
 
 
 async def _retrieve_evidence(

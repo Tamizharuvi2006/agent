@@ -15,6 +15,7 @@ from prime_swarm_core.api import create_app
 from prime_swarm_core.cli.config import CliProfileUpdate, delete_profile, list_profiles, load_profile, save_profile
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.cli.main import app as cli_app
+from prime_swarm_core.llm import MockChatModel
 from prime_swarm_core.product import (
     BrowserPage,
     HTTPHTMLBrowserProvider,
@@ -157,6 +158,22 @@ class TestPhase1Api(unittest.TestCase):
         self.assertIn("Browser evidence", payload["result"]["evidence"])
         self.assertEqual(payload["result"]["sources"][0]["kind"], "browser")
 
+    def test_create_run_can_use_injected_chat_model(self) -> None:
+        chat_model = MockChatModel([{"answer": "Injected LLM answer", "confidence": 0.91}])
+        client = TestClient(create_app(InMemoryRunStore(), chat_model=chat_model))
+
+        response = client.post(
+            "/v1/runs",
+            json={"question": "Who answers?", "use_llm": True, "llm_provider": "openai", "llm_model": "gpt-test"},
+            headers={"x-api-key": "dev-key"},
+        )
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["result"]["answer"], "Injected LLM answer")
+        self.assertEqual(len(chat_model.calls), 1)
+
     def test_web_search_without_provider_is_reported_honestly(self) -> None:
         client = TestClient(create_app(InMemoryRunStore()))
 
@@ -255,6 +272,13 @@ class TestPhase1Cli(unittest.TestCase):
                     "docs",
                     "--browser-url",
                     "https://example.test/page",
+                    "--llm",
+                    "--llm-provider",
+                    "openrouter",
+                    "--llm-model",
+                    "openai/gpt-test",
+                    "--llm-base-url",
+                    "https://gateway.example/v1",
                     "--top-k",
                     "3",
                     "--web",
@@ -270,6 +294,10 @@ class TestPhase1Cli(unittest.TestCase):
             "Remote question",
             source_path="docs",
             browser_url="https://example.test/page",
+            use_llm=True,
+            llm_provider="openrouter",
+            llm_model="openai/gpt-test",
+            llm_base_url="https://gateway.example/v1",
             use_web_search=True,
             top_k=3,
         )
@@ -357,6 +385,13 @@ class TestPhase1Cli(unittest.TestCase):
                     "docs",
                     "--browser-url",
                     "https://example.test/page",
+                    "--llm",
+                    "--llm-provider",
+                    "openrouter",
+                    "--llm-model",
+                    "openai/gpt-test",
+                    "--llm-base-url",
+                    "https://gateway.example/v1",
                     "--web",
                     "--top-k",
                     "3",
@@ -371,6 +406,10 @@ class TestPhase1Cli(unittest.TestCase):
         self.assertEqual(profile.db, Path("data/runs.sqlite"))
         self.assertEqual(profile.source, Path("docs"))
         self.assertEqual(profile.browser_url, "https://example.test/page")
+        self.assertTrue(profile.llm)
+        self.assertEqual(profile.llm_provider, "openrouter")
+        self.assertEqual(profile.llm_model, "openai/gpt-test")
+        self.assertEqual(profile.llm_base_url, "https://gateway.example/v1")
         self.assertTrue(profile.web)
         self.assertEqual(profile.top_k, 3)
 
@@ -438,6 +477,10 @@ class TestCliConfig(unittest.TestCase):
                                 "db": "data/runs.sqlite",
                                 "source": "docs",
                                 "browser_url": "https://example.test/page",
+                                "llm": True,
+                                "llm_provider": "openrouter",
+                                "llm_model": "openai/gpt-test",
+                                "llm_base_url": "https://gateway.example/v1",
                                 "web": True,
                                 "top_k": 3,
                             }
@@ -454,6 +497,10 @@ class TestCliConfig(unittest.TestCase):
         self.assertEqual(profile.db, Path("data/runs.sqlite"))
         self.assertEqual(profile.source, Path("docs"))
         self.assertEqual(profile.browser_url, "https://example.test/page")
+        self.assertTrue(profile.llm)
+        self.assertEqual(profile.llm_provider, "openrouter")
+        self.assertEqual(profile.llm_model, "openai/gpt-test")
+        self.assertEqual(profile.llm_base_url, "https://gateway.example/v1")
         self.assertTrue(profile.web)
         self.assertEqual(profile.top_k, 3)
 
@@ -523,6 +570,10 @@ class TestCliHttpClient(unittest.TestCase):
             "q",
             source_path="docs",
             browser_url="https://example.test/page",
+            use_llm=True,
+            llm_provider="openrouter",
+            llm_model="openai/gpt-test",
+            llm_base_url="https://gateway.example/v1",
             use_web_search=True,
             top_k=3,
         )
@@ -535,6 +586,10 @@ class TestCliHttpClient(unittest.TestCase):
                 "question": "q",
                 "source_path": "docs",
                 "browser_url": "https://example.test/page",
+                "use_llm": True,
+                "llm_provider": "openrouter",
+                "llm_model": "openai/gpt-test",
+                "llm_base_url": "https://gateway.example/v1",
                 "top_k": 3,
                 "use_web_search": True,
             },

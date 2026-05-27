@@ -7,6 +7,7 @@ import os
 from fastapi import FastAPI
 
 from prime_swarm_core.api.routes import router
+from prime_swarm_core.llm import ChatModel
 from prime_swarm_core.product import (
     BrowserProvider,
     HTTPHTMLBrowserProvider,
@@ -22,11 +23,13 @@ def create_app(
     store: RunStore | None = None,
     search_provider: SearchProvider | None = None,
     browser_provider: BrowserProvider | None = None,
+    chat_model: ChatModel | None = None,
 ) -> FastAPI:
     app = FastAPI(title="PRIME-SWARM-CORE", version="0.1.0")
     app.state.run_store = store or _default_store()
     app.state.search_provider = search_provider or _default_search_provider()
     app.state.browser_provider = browser_provider or HTTPHTMLBrowserProvider()
+    app.state.chat_model = chat_model
     app.include_router(router)
     return app
 

@@ -43,6 +43,13 @@ This project follows the `HEIST_MANIFEST.md` rule: steal patterns, not packages.
 | `prime_swarm_core.code_actions` | Smolagents | Code-as-action review gate. Execution is not implemented and is disabled by default. |
 | `prime_swarm_core.diffs` | Cursor / Aider | Unified diff generation for reviewable edits. |
 
+## Phase 1 Provider Credits
+
+| Local area | Inspired by | What was borrowed |
+|---|---|---|
+| `prime_swarm_core.llm.providers` | OpenAI-compatible provider APIs from OpenAI, OpenRouter-style gateways, xAI, and DashScope/Qwen | A preset factory around `/chat/completions` without importing vendor SDKs. |
+| `prime_swarm_core.llm.chat.AnthropicMessagesChatModel` | Anthropic Messages API | A native Messages-shaped adapter with system-message mapping, text block parsing, and usage accounting. |
+
 ## Guardrails
 
 - No LangChain orchestration dependency is used.

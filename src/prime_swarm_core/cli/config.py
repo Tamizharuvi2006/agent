@@ -23,6 +23,10 @@ class CliProfile:
     db: Path | None = None
     source: Path | None = None
     browser_url: str | None = None
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    llm_base_url: str | None = None
+    llm: bool = False
     web: bool = False
     top_k: int | None = None
 
@@ -34,6 +38,10 @@ class CliProfileUpdate:
     db: Path | None = None
     source: Path | None = None
     browser_url: str | None = None
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    llm_base_url: str | None = None
+    llm: bool | None = None
     web: bool | None = None
     top_k: int | None = None
 
@@ -138,6 +146,10 @@ def _parse_profile(raw: dict[str, Any]) -> CliProfile:
         db=_optional_path(raw.get("db")),
         source=_optional_path(raw.get("source")),
         browser_url=_optional_str(raw.get("browser_url")),
+        llm_provider=_optional_str(raw.get("llm_provider")),
+        llm_model=_optional_str(raw.get("llm_model")),
+        llm_base_url=_optional_str(raw.get("llm_base_url")),
+        llm=bool(raw.get("llm", False)),
         web=bool(raw.get("web", False)),
         top_k=top_k,
     )
@@ -167,6 +179,14 @@ def _update_to_dict(update: CliProfileUpdate) -> dict[str, Any]:
         data["source"] = str(update.source)
     if update.browser_url is not None:
         data["browser_url"] = update.browser_url
+    if update.llm_provider is not None:
+        data["llm_provider"] = update.llm_provider
+    if update.llm_model is not None:
+        data["llm_model"] = update.llm_model
+    if update.llm_base_url is not None:
+        data["llm_base_url"] = update.llm_base_url
+    if update.llm is not None:
+        data["llm"] = update.llm
     if update.web is not None:
         data["web"] = update.web
     if update.top_k is not None:

@@ -19,6 +19,7 @@ from prime_swarm_core.cli.config import (
     save_profile,
 )
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
+from prime_swarm_core.llm import create_chat_model
 from prime_swarm_core.product import InMemoryRunStore, SQLiteRunStore, run_research
 
 
@@ -60,6 +61,10 @@ def profile_set(
     db: Path | None = typer.Option(None, "--db", help="Default SQLite run database."),
     source: Path | None = typer.Option(None, "--source", help="Default local source file or directory."),
     browser_url: str | None = typer.Option(None, "--browser-url", help="Default browser/page URL."),
+    llm_provider: str | None = typer.Option(None, "--llm-provider", help="Default LLM provider."),
+    llm_model: str | None = typer.Option(None, "--llm-model", help="Default LLM model."),
+    llm_base_url: str | None = typer.Option(None, "--llm-base-url", help="Default LLM API base URL."),
+    llm: bool | None = typer.Option(None, "--llm/--no-llm", help="Use a real LLM provider by default."),
     web: bool | None = typer.Option(None, "--web/--no-web", help="Default web search mode."),
     top_k: int | None = typer.Option(None, "--top-k", min=1, max=20, help="Default retrieval count."),
 ) -> None:
@@ -73,6 +78,10 @@ def profile_set(
                 db=db,
                 source=source,
                 browser_url=browser_url,
+                llm_provider=llm_provider,
+                llm_model=llm_model,
+                llm_base_url=llm_base_url,
+                llm=llm,
                 web=web,
                 top_k=top_k,
             ),
@@ -111,6 +120,10 @@ def research(
     api_key: str | None = typer.Option(None, "--api-key", help="API key for HTTP mode."),
     source: Path | None = typer.Option(None, "--source", help="Read evidence from this local file or directory."),
     browser_url: str | None = typer.Option(None, "--browser-url", help="Read evidence from this web page URL."),
+    llm: bool = typer.Option(False, "--llm", help="Use a configured real LLM instead of the deterministic mock."),
+    llm_provider: str | None = typer.Option(None, "--llm-provider", help="LLM provider preset."),
+    llm_model: str | None = typer.Option(None, "--llm-model", help="LLM model name."),
+    llm_base_url: str | None = typer.Option(None, "--llm-base-url", help="Override LLM API base URL."),
     web: bool = typer.Option(False, "--web", help="Use configured external web search."),
     top_k: int | None = typer.Option(None, "--top-k", min=1, max=20, help="Number of source chunks to retrieve."),
     profile: str | None = typer.Option(None, "--profile", help="Read defaults from this config profile."),
@@ -123,6 +136,10 @@ def research(
     resolved_db = db or profile_config.db
     resolved_source = source or profile_config.source
     resolved_browser_url = browser_url or profile_config.browser_url
+    resolved_llm = llm or profile_config.llm
+    resolved_llm_provider = llm_provider or profile_config.llm_provider
+    resolved_llm_model = llm_model or profile_config.llm_model
+    resolved_llm_base_url = llm_base_url or profile_config.llm_base_url
     resolved_web = web or profile_config.web
     resolved_top_k = top_k or profile_config.top_k or 4
 
@@ -135,6 +152,10 @@ def research(
                 question,
                 source_path=str(resolved_source) if resolved_source else None,
                 browser_url=resolved_browser_url,
+                use_llm=resolved_llm,
+                llm_provider=resolved_llm_provider,
+                llm_model=resolved_llm_model,
+                llm_base_url=resolved_llm_base_url,
                 use_web_search=resolved_web,
                 top_k=resolved_top_k,
             )
@@ -147,6 +168,10 @@ def research(
                     store,
                     source_path=resolved_source,
                     browser_url=resolved_browser_url,
+                    use_llm=resolved_llm,
+                    llm_provider=resolved_llm_provider,
+                    llm_model=resolved_llm_model,
+                    llm_base_url=resolved_llm_base_url,
                     use_web_search=resolved_web,
                     top_k=resolved_top_k,
                 )
@@ -160,6 +185,24 @@ def research(
         asyncio.run(_run())
     except CliHttpError as exc:
         raise typer.BadParameter(str(exc), param_hint="--api-url") from exc
+
+
+@app.command()
+def llm_test(
+    prompt: str = typer.Argument("Say ok."),
+    provider: str | None = typer.Option(None, "--provider", help="Provider preset: openai, openrouter, xai/grok, qwen, anthropic/claude."),
+    model: str | None = typer.Option(None, "--model", help="Model name."),
+    api_key: str | None = typer.Option(None, "--api-key", help="Provider API key."),
+    base_url: str | None = typer.Option(None, "--base-url", help="Override provider base URL."),
+) -> None:
+    """Call a configured LLM provider once."""
+
+    async def _run() -> None:
+        chat_model = create_chat_model(provider=provider, model=model, api_key=api_key, base_url=base_url)
+        answer = await chat_model.complete([{"role": "user", "content": prompt}])
+        typer.echo(answer)
+
+    asyncio.run(_run())
 
 
 def _profile(name: str | None, config: Path | None) -> CliProfile:

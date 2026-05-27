@@ -63,6 +63,63 @@ class OpenAICompatibleChatModel:
             raise ValueError("chat response did not include choices[0].message.content") from exc
 
 
+@dataclass(frozen=True, slots=True)
+class AnthropicMessagesChatModel:
+    """Small Anthropic Messages API adapter using only the standard library."""
+
+    model: str
+    api_key: str | None = None
+    base_url: str = "https://api.anthropic.com/v1"
+    transport: Transport | None = None
+    default_options: dict[str, Any] = field(default_factory=dict)
+    budget_tracker: BudgetTracker | None = None
+    anthropic_version: str = "2023-06-01"
+
+    async def complete(self, messages: list[Message], **options: Any) -> str:
+        api_key = self.api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not api_key and self.transport is None:
+            raise ValueError("api_key or transport is required")
+
+        system_messages = [message["content"] for message in messages if message.get("role") == "system"]
+        conversation = [
+            {"role": message["role"], "content": message["content"]}
+            for message in messages
+            if message.get("role") in {"user", "assistant"}
+        ]
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": conversation,
+            **self.default_options,
+            **{key: value for key, value in options.items() if key != "response_format"},
+        }
+        if system_messages:
+            payload["system"] = "\n\n".join(system_messages)
+        payload.setdefault("max_tokens", 1024)
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key or "",
+            "anthropic-version": self.anthropic_version,
+        }
+        url = f"{self.base_url.rstrip('/')}/messages"
+        response = await (self.transport(url, headers, payload) if self.transport else _post_json(url, headers, payload))
+        if self.budget_tracker is not None:
+            usage = response.get("usage", {})
+            input_tokens = int(usage.get("input_tokens", 0))
+            output_tokens = int(usage.get("output_tokens", 0))
+            self.budget_tracker.record(
+                model=self.model,
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+            )
+        try:
+            blocks = response["content"]
+            return "".join(block.get("text", "") for block in blocks if block.get("type") == "text")
+        except (KeyError, TypeError) as exc:
+            raise ValueError("messages response did not include text content blocks") from exc
+
+
 async def _post_json(url: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:
     return await asyncio.to_thread(_post_json_sync, url, headers, payload)
 

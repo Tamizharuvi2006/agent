@@ -34,6 +34,10 @@ class PrimeSwarmHttpClient:
         *,
         source_path: str | None = None,
         browser_url: str | None = None,
+        use_llm: bool = False,
+        llm_provider: str | None = None,
+        llm_model: str | None = None,
+        llm_base_url: str | None = None,
         use_web_search: bool = False,
         top_k: int = 4,
     ) -> dict[str, Any]:
@@ -42,6 +46,14 @@ class PrimeSwarmHttpClient:
             payload["source_path"] = source_path
         if browser_url:
             payload["browser_url"] = browser_url
+        if use_llm:
+            payload["use_llm"] = True
+        if llm_provider:
+            payload["llm_provider"] = llm_provider
+        if llm_model:
+            payload["llm_model"] = llm_model
+        if llm_base_url:
+            payload["llm_base_url"] = llm_base_url
         return self._request("POST", "/v1/runs", json=payload)
 
     def _request(self, method: str, path: str, *, json: dict[str, Any] | None = None) -> dict[str, Any]:

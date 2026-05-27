@@ -35,11 +35,11 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 81 discovered, 80 passing, 1 skipped |
+| Tests | 84 discovered, 83 passing, 1 skipped |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
-| LLM adapter | OpenAI-compatible chat, mock model, signature retry |
+| LLM adapter | Mock model, OpenAI-compatible APIs, native Claude Messages API, signature retry |
 | Temporal | Required dependency, workflow/activity integration, parity test |
 | Live Temporal proof | Completed against SDK-managed local Temporal dev server |
 | Live API proof | Uvicorn smoke test covers real HTTP API plus HTTP CLI |
@@ -114,8 +114,10 @@ Core runtime:
 - `JSONLSpanExporter`
 - `MultiSpanExporter`
 - `OpenTelemetrySpanExporter`
-- `OpenAICompatibleChatModel`
 - `MockChatModel`
+- `OpenAICompatibleChatModel`
+- `AnthropicMessagesChatModel`
+- `create_chat_model`
 - `BudgetTracker`
 - `DeterminismContext`
 
@@ -175,16 +177,20 @@ Started in Phase 1:
 - local in-memory or SQLite run store
 - `prime-swarm health`
 - `prime-swarm research "question"`
+- `prime-swarm research "question" --llm --llm-provider openrouter --llm-model openai/gpt-4o-mini`
+- `prime-swarm llm-test "Say ok" --provider openai --model gpt-4o-mini`
 - `prime-swarm health --api-url http://127.0.0.1:8000`
 - `prime-swarm research "question" --api-url http://127.0.0.1:8000 --api-key dev-key`
 - local file/directory retrieval through `source_path` or CLI `--source`
 - external HTTP JSON web search through `use_web_search` or CLI `--web`
 - browser page ingestion through `browser_url` or CLI `--browser-url`
+- real LLM provider selection through `use_llm` or CLI `--llm`
+- provider presets for OpenAI, OpenRouter, xAI/Grok, Qwen/DashScope, and Anthropic/Claude
 - CLI config profiles through `--profile` and `--config`
 - CLI config writer through `profile-set`
 - CLI profile listing/deletion through `profile-list` and `profile-delete`
 
-The Phase 1 run path now supports local file/directory retrieval, a vendor-neutral HTTP JSON search provider, and HTTP HTML page ingestion. A gated live search smoke test exists, but it only runs when provider environment variables are set. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
+The Phase 1 run path now supports local file/directory retrieval, a vendor-neutral HTTP JSON search provider, HTTP HTML page ingestion, and real LLM provider selection. A gated live search smoke test exists, but it only runs when provider environment variables are set. LLM live calls require the matching provider API key. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
 
 ## Examples
 
@@ -200,8 +206,8 @@ The Phase 1 run path now supports local file/directory retrieval, a vendor-neutr
 Latest validation:
 
 ```text
-81 tests discovered
-80 tests passed
+84 tests discovered
+83 tests passed
 1 test skipped
 ```
 
@@ -234,6 +240,50 @@ python -m unittest tests.test_live_search_smoke -v
 ```
 
 Result without those env vars: skipped. Result with real compatible provider credentials: calls the provider and runs a web-backed research flow.
+
+## LLM Providers
+
+Mock mode remains the default so examples and tests are deterministic. Use `--llm` or API `use_llm: true` to call a real provider.
+
+Provider presets:
+
+| Provider | Adapter | Default Base URL | API Key Env |
+|---|---|---|---|
+| `openai` | OpenAI-compatible chat completions | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
+| `openrouter` | OpenAI-compatible chat completions | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
+| `xai` / `grok` | OpenAI-compatible chat completions | `https://api.x.ai/v1` | `XAI_API_KEY` |
+| `qwen` / `dashscope` | OpenAI-compatible chat completions | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
+| `anthropic` / `claude` | Anthropic Messages API | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` |
+
+Generic env configuration:
+
+```powershell
+$env:PRIME_SWARM_LLM_PROVIDER='openrouter'
+$env:PRIME_SWARM_LLM_MODEL='openai/gpt-4o-mini'
+$env:PRIME_SWARM_LLM_API_KEY='<provider-key>'
+prime-swarm research "What is the heist rule?" --llm --json
+```
+
+Provider-specific examples:
+
+```powershell
+$env:OPENAI_API_KEY='<key>'
+prime-swarm llm-test "Say ok" --provider openai --model gpt-4o-mini
+
+$env:OPENROUTER_API_KEY='<key>'
+prime-swarm llm-test "Say ok" --provider openrouter --model openai/gpt-4o-mini
+
+$env:XAI_API_KEY='<key>'
+prime-swarm llm-test "Say ok" --provider grok --model grok-4.3
+
+$env:DASHSCOPE_API_KEY='<key>'
+prime-swarm llm-test "Say ok" --provider qwen --model qwen-plus
+
+$env:ANTHROPIC_API_KEY='<key>'
+prime-swarm llm-test "Say ok" --provider claude --model claude-sonnet-4-5
+```
+
+Claude is wired through its native Messages API adapter. It is not forced through the OpenAI-compatible adapter.
 
 ## Design Rules
 
@@ -308,6 +358,7 @@ prime-swarm research "What is the heist rule?" --json
 prime-swarm research "What is the heist rule?" --source docs --json
 prime-swarm research "What is the heist rule?" --web --json
 prime-swarm research "What is the heist rule?" --browser-url https://example.com --json
+prime-swarm research "What is the heist rule?" --llm --llm-provider openrouter --llm-model openai/gpt-4o-mini --json
 prime-swarm research "What is the heist rule?" --db data/runs.sqlite --json
 prime-swarm research "What is the heist rule?" --profile local --config .prime-swarm.json --json
 prime-swarm health --api-url http://127.0.0.1:8000
@@ -322,6 +373,9 @@ prime-swarm profile-set local `
   --db data/runs.sqlite `
   --source docs `
   --browser-url https://example.com `
+  --llm `
+  --llm-provider openrouter `
+  --llm-model openai/gpt-4o-mini `
   --top-k 4
 
 prime-swarm profile-set api `
@@ -344,6 +398,9 @@ Example CLI config:
       "db": "data/runs.sqlite",
       "source": "docs",
       "browser_url": "https://example.com",
+      "llm": true,
+      "llm_provider": "openrouter",
+      "llm_model": "openai/gpt-4o-mini",
       "top_k": 4
     },
     "api": {

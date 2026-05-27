@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from prime_swarm_core.api.auth import require_api_key
 from prime_swarm_core.api.schemas import CreateRunRequest, HealthResponse, RunResponse
+from prime_swarm_core.llm import ChatModel
 from prime_swarm_core.product import BrowserProvider, SearchProvider, RunStore, run_research
 
 
@@ -24,6 +25,10 @@ def get_browser_provider(request: Request) -> BrowserProvider | None:
     return request.app.state.browser_provider
 
 
+def get_chat_model(request: Request) -> ChatModel | None:
+    return request.app.state.chat_model
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     return HealthResponse()
@@ -35,6 +40,7 @@ async def create_run(
     store: RunStore = Depends(get_store),
     search_provider: SearchProvider | None = Depends(get_search_provider),
     browser_provider: BrowserProvider | None = Depends(get_browser_provider),
+    chat_model: ChatModel | None = Depends(get_chat_model),
 ) -> RunResponse:
     record = await run_research(
         payload.question,
@@ -43,6 +49,11 @@ async def create_run(
         browser_url=payload.browser_url,
         browser_provider=browser_provider,
         search_provider=search_provider,
+        chat_model=chat_model,
+        use_llm=payload.use_llm,
+        llm_provider=payload.llm_provider,
+        llm_model=payload.llm_model,
+        llm_base_url=payload.llm_base_url,
         use_web_search=payload.use_web_search,
         top_k=payload.top_k,
     )

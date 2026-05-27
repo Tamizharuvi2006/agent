@@ -7,7 +7,15 @@ from tempfile import TemporaryDirectory
 
 from prime_swarm_core.determinism import DeterminismContext
 from prime_swarm_core.graph import Command, GraphLimitExceeded, GraphRunner, SQLiteCheckpointer, Send
-from prime_swarm_core.llm import BudgetTracker, MockChatModel, OpenAICompatibleChatModel, StructuredCallFailed, call_signature
+from prime_swarm_core.llm import (
+    AnthropicMessagesChatModel,
+    BudgetTracker,
+    MockChatModel,
+    OpenAICompatibleChatModel,
+    StructuredCallFailed,
+    call_signature,
+    create_chat_model,
+)
 from prime_swarm_core.prompts import FieldSpec, Signature
 from prime_swarm_core.tracing import InMemorySpanExporter, JSONLSpanExporter, MultiSpanExporter
 from prime_swarm_core.tracing.viewer import render_trace_tree
@@ -168,6 +176,64 @@ class TestRuntimeIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured["url"], "https://example.test/v1/chat/completions")
         self.assertEqual(captured["payload"]["response_format"], {"type": "json_object"})
         self.assertEqual(budget.total_tokens, 12)
+
+    async def test_provider_factory_supports_openai_compatible_presets(self) -> None:
+        captured = {}
+
+        async def fake_transport(url, headers, payload):
+            captured["url"] = url
+            captured["headers"] = headers
+            captured["payload"] = payload
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        model = create_chat_model(
+            provider="openrouter",
+            model="anthropic/claude-sonnet-4.5",
+            api_key="test-key",
+            transport=fake_transport,
+        )
+
+        answer = await model.complete([{"role": "user", "content": "hello"}], temperature=0)
+
+        self.assertEqual(answer, "ok")
+        self.assertEqual(captured["url"], "https://openrouter.ai/api/v1/chat/completions")
+        self.assertEqual(captured["headers"]["Authorization"], "Bearer test-key")
+        self.assertEqual(captured["payload"]["model"], "anthropic/claude-sonnet-4.5")
+
+    async def test_anthropic_messages_model_maps_system_and_usage(self) -> None:
+        captured = {}
+        budget = BudgetTracker()
+
+        async def fake_transport(url, headers, payload):
+            captured["url"] = url
+            captured["headers"] = headers
+            captured["payload"] = payload
+            return {
+                "content": [{"type": "text", "text": "Claude answer"}],
+                "usage": {"input_tokens": 11, "output_tokens": 13},
+            }
+
+        model = AnthropicMessagesChatModel(
+            model="claude-test",
+            api_key="anthropic-key",
+            transport=fake_transport,
+            budget_tracker=budget,
+        )
+
+        answer = await model.complete(
+            [
+                {"role": "system", "content": "Be concise."},
+                {"role": "user", "content": "Hello"},
+            ],
+            response_format={"type": "json_object"},
+        )
+
+        self.assertEqual(answer, "Claude answer")
+        self.assertEqual(captured["url"], "https://api.anthropic.com/v1/messages")
+        self.assertEqual(captured["headers"]["x-api-key"], "anthropic-key")
+        self.assertEqual(captured["payload"]["system"], "Be concise.")
+        self.assertNotIn("response_format", captured["payload"])
+        self.assertEqual(budget.total_tokens, 24)
 
     async def test_mock_model_retries_and_failure_path(self) -> None:
         signature = Signature(

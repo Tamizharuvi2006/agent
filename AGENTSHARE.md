@@ -265,8 +265,15 @@ Scope:
 - API `browser_url`: implemented.
 - CLI `--browser-url`: implemented.
 - CLI profile `browser_url`: implemented.
+- LLM provider factory: implemented.
+- OpenAI-compatible presets for OpenAI, OpenRouter, xAI/Grok, and Qwen/DashScope: implemented.
+- Native Anthropic/Claude Messages API adapter: implemented.
+- API `use_llm`, `llm_provider`, `llm_model`, and `llm_base_url`: implemented.
+- CLI `--llm`, `--llm-provider`, `--llm-model`, and `--llm-base-url`: implemented.
+- CLI `llm-test`: implemented.
+- CLI profile LLM defaults: implemented.
 
-Do not claim Postgres, hosted SaaS, a live vendor search run, or full browser automation until those are actually wired. Browser page ingestion is implemented, but interactive browser sessions, JS execution, clicking, typing, screenshots, and authenticated browsing are not.
+Do not claim Postgres, hosted SaaS, a live vendor search run, a live LLM provider run, or full browser automation until those are actually wired and proven with credentials. Browser page ingestion is implemented, but interactive browser sessions, JS execution, clicking, typing, screenshots, and authenticated browsing are not.
 
 Phase 1 validation:
 
@@ -274,7 +281,7 @@ Phase 1 validation:
 $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 81 tests discovered, 80 tests passed, 1 skipped.
+Latest result: 84 tests discovered, 83 tests passed, 1 skipped.
 
 Live search smoke command:
 
@@ -294,6 +301,16 @@ Browser/page ingestion examples:
 $env:PYTHONPATH='src'; prime-swarm research "What is the heist rule?" --browser-url https://example.com --json
 $env:PYTHONPATH='src'; prime-swarm research "What is the heist rule?" --browser-url https://example.com --api-url http://127.0.0.1:8000 --api-key dev-key --json
 ```
+
+LLM provider examples:
+
+```powershell
+$env:PYTHONPATH='src'; $env:OPENAI_API_KEY='<key>'; prime-swarm llm-test "Say ok" --provider openai --model gpt-4o-mini
+$env:PYTHONPATH='src'; $env:OPENROUTER_API_KEY='<key>'; prime-swarm research "What is the heist rule?" --llm --llm-provider openrouter --llm-model openai/gpt-4o-mini --json
+$env:PYTHONPATH='src'; $env:ANTHROPIC_API_KEY='<key>'; prime-swarm llm-test "Say ok" --provider claude --model claude-sonnet-4-5
+```
+
+Claude is intentionally handled through `AnthropicMessagesChatModel`, not the OpenAI-compatible adapter.
 
 ## Temporal State
 
