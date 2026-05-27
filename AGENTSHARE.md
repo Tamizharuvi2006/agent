@@ -247,6 +247,7 @@ Scope:
 - Local file/directory retrieval in the research graph: implemented.
 - API `source_path` and `top_k`: implemented.
 - CLI `--source` and `--top-k`: implemented.
+- Live Uvicorn smoke test for API plus HTTP CLI: implemented.
 
 Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
 
@@ -256,7 +257,13 @@ Phase 1 validation:
 $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 62 tests passed.
+Latest result: 63 tests passed.
+
+Live API smoke command:
+
+```powershell
+$env:PYTHONPATH='src'; python -m unittest tests.test_phase1_live_api_smoke -v
+```
 
 ## Temporal State
 

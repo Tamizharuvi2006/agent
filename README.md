@@ -35,13 +35,14 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 62 passing |
+| Tests | 63 passing |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
 | LLM adapter | OpenAI-compatible chat, mock model, signature retry |
 | Temporal | Required dependency, workflow/activity integration, parity test |
 | Live Temporal proof | Completed against SDK-managed local Temporal dev server |
+| Live API proof | Uvicorn smoke test covers real HTTP API plus HTTP CLI |
 | Phase 1 API/CLI | Started: FastAPI shell, API keys, SQLite/local run store, local/HTTP Typer CLI |
 | Deep research product | Local retrieval vertical slice only |
 | SaaS deployment | Not started |
@@ -192,7 +193,7 @@ The Phase 1 run path now supports local file and directory retrieval. It still d
 Latest validation:
 
 ```text
-62 tests passed
+63 tests passed
 ```
 
 Live Temporal proof:
@@ -203,6 +204,15 @@ python examples\01_simple_research.py --backend temporal
 ```
 
 Result: completed successfully against the SDK-managed local Temporal dev server and returned the expected research output.
+
+Live API proof:
+
+```powershell
+$env:PYTHONPATH='src'
+python -m unittest tests.test_phase1_live_api_smoke -v
+```
+
+Result: starts Uvicorn on localhost, creates a source-backed run over HTTP, and calls the same server through the CLI.
 
 ## Design Rules
 
