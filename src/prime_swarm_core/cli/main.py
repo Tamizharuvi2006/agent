@@ -9,12 +9,46 @@ from pathlib import Path
 
 import typer
 
-from prime_swarm_core.cli.config import CliConfigError, CliProfile, CliProfileUpdate, load_profile, save_profile
+from prime_swarm_core.cli.config import (
+    CliConfigError,
+    CliProfile,
+    CliProfileUpdate,
+    delete_profile,
+    list_profiles,
+    load_profile,
+    save_profile,
+)
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.product import InMemoryRunStore, SQLiteRunStore, run_research
 
 
 app = typer.Typer(help="PRIME-SWARM-CORE CLI")
+
+
+@app.command()
+def profile_list(
+    config: Path | None = typer.Option(None, "--config", help="Path to a JSON config file."),
+) -> None:
+    """List CLI config profile names."""
+    try:
+        names = list_profiles(config)
+    except CliConfigError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--config") from exc
+    for name in names:
+        typer.echo(name)
+
+
+@app.command()
+def profile_delete(
+    name: str,
+    config: Path | None = typer.Option(None, "--config", help="Path to a JSON config file."),
+) -> None:
+    """Delete a CLI config profile."""
+    try:
+        path = delete_profile(name, config)
+    except CliConfigError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--config") from exc
+    typer.echo(f"deleted profile '{name}' from {path}")
 
 
 @app.command()

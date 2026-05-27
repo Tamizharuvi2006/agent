@@ -257,6 +257,8 @@ Scope:
 - CLI config profiles: implemented.
 - CLI `--profile` and `--config`: implemented.
 - CLI `profile-set`: implemented.
+- CLI `profile-list`: implemented.
+- CLI `profile-delete`: implemented.
 
 Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
 
@@ -266,7 +268,7 @@ Phase 1 validation:
 $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 74 tests passed.
+Latest result: 78 tests passed.
 
 Live search smoke command:
 

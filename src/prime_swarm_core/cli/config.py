@@ -85,6 +85,34 @@ def save_profile(name: str, update: CliProfileUpdate, path: str | Path | None = 
     return config_path
 
 
+def list_profiles(path: str | Path | None = None) -> list[str]:
+    config_path = Path(path).expanduser() if path else default_config_path()
+    if not config_path.exists():
+        return []
+    data = _load_json(config_path)
+    profiles = data.get("profiles")
+    if not isinstance(profiles, dict):
+        raise CliConfigError("config must contain a profiles object")
+    return sorted(str(name) for name in profiles)
+
+
+def delete_profile(name: str, path: str | Path | None = None) -> Path:
+    config_path = Path(path).expanduser() if path else default_config_path()
+    if not config_path.exists():
+        raise CliConfigError(f"config file not found: {config_path}")
+
+    data = _load_json(config_path)
+    profiles = data.get("profiles")
+    if not isinstance(profiles, dict):
+        raise CliConfigError("config must contain a profiles object")
+    if name not in profiles:
+        raise CliConfigError(f"profile not found: {name}")
+
+    del profiles[name]
+    config_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return config_path
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))

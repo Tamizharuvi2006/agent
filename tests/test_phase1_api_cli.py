@@ -12,7 +12,7 @@ import httpx
 from typer.testing import CliRunner
 
 from prime_swarm_core.api import create_app
-from prime_swarm_core.cli.config import CliProfileUpdate, load_profile, save_profile
+from prime_swarm_core.cli.config import CliProfileUpdate, delete_profile, list_profiles, load_profile, save_profile
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.cli.main import app as cli_app
 from prime_swarm_core.product import (
@@ -341,6 +341,55 @@ class TestPhase1Cli(unittest.TestCase):
         self.assertTrue(profile.web)
         self.assertEqual(profile.top_k, 3)
 
+    def test_cli_profile_list_prints_names_only(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "profiles": {
+                            "api": {"api_key": "secret"},
+                            "local": {"source": "docs"},
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = runner.invoke(cli_app, ["profile-list", "--config", str(config_path)])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.stdout.splitlines(), ["api", "local"])
+        self.assertNotIn("secret", result.stdout)
+
+    def test_cli_profile_delete_removes_profile(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(
+                json.dumps({"profiles": {"api": {"api_url": "http://api.test"}, "local": {"source": "docs"}}}),
+                encoding="utf-8",
+            )
+
+            result = runner.invoke(cli_app, ["profile-delete", "api", "--config", str(config_path)])
+            names = list_profiles(config_path)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(names, ["local"])
+        self.assertIn("deleted profile 'api'", result.stdout)
+
+    def test_cli_profile_delete_missing_profile_is_clear(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"profiles": {}}), encoding="utf-8")
+
+            result = runner.invoke(cli_app, ["profile-delete", "missing", "--config", str(config_path)])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("profile not found: missing", result.output)
+
 
 class TestCliConfig(unittest.TestCase):
     def test_load_profile_parses_supported_fields(self) -> None:
@@ -392,6 +441,19 @@ class TestCliConfig(unittest.TestCase):
         self.assertEqual(dev.top_k, 2)
         self.assertTrue(dev.web)
         self.assertEqual(other.source, Path("docs"))
+
+    def test_list_profiles_returns_sorted_names_and_delete_profile_removes_one(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            save_profile("zeta", CliProfileUpdate(source=Path("docs")), config_path)
+            save_profile("alpha", CliProfileUpdate(api_url="http://api.test"), config_path)
+
+            before = list_profiles(config_path)
+            delete_profile("zeta", config_path)
+            after = list_profiles(config_path)
+
+        self.assertEqual(before, ["alpha", "zeta"])
+        self.assertEqual(after, ["alpha"])
 
 
 class TestCliHttpClient(unittest.TestCase):
