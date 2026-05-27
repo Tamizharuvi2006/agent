@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -9,7 +12,7 @@ from typer.testing import CliRunner
 
 from prime_swarm_core.api import create_app
 from prime_swarm_core.cli.main import app as cli_app
-from prime_swarm_core.product import InMemoryRunStore
+from prime_swarm_core.product import InMemoryRunStore, RunRecord, SQLiteRunStore
 
 
 class TestPhase1Api(unittest.TestCase):
@@ -55,6 +58,24 @@ class TestPhase1Api(unittest.TestCase):
         self.assertEqual(bad.status_code, 401)
         self.assertEqual(good.status_code, 200)
 
+    def test_app_uses_sqlite_store_when_env_is_set(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "runs.sqlite"
+            with patch.dict("os.environ", {"PRIME_SWARM_RUN_DB": str(db_path)}, clear=False):
+                client = TestClient(create_app())
+                created = client.post(
+                    "/v1/runs",
+                    json={"question": "What persists?"},
+                    headers={"x-api-key": "dev-key"},
+                )
+
+            payload = created.json()
+            restored = asyncio.run(SQLiteRunStore(db_path).get(payload["run_id"]))
+
+        self.assertEqual(created.status_code, 200)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.question, "What persists?")
+
 
 class TestPhase1Cli(unittest.TestCase):
     def test_cli_health(self) -> None:
@@ -74,6 +95,44 @@ class TestPhase1Cli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(payload["status"], "completed")
         self.assertIn("Mock research answer", payload["result"]["answer"])
+
+    def test_cli_research_can_persist_to_sqlite(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "runs.sqlite"
+
+            result = runner.invoke(cli_app, ["research", "Persist me", "--json", "--db", str(db_path)])
+            payload = json.loads(result.stdout)
+            restored = asyncio.run(SQLiteRunStore(db_path).get(payload["run_id"]))
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.question, "Persist me")
+
+
+class TestSQLiteRunStore(unittest.TestCase):
+    def test_sqlite_run_store_survives_recreation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "runs.sqlite"
+            record = RunRecord(
+                run_id="run-1",
+                question="What is durable?",
+                status="completed",
+                result={"answer": "SQLite", "confidence": 0.9},
+            )
+
+            asyncio.run(SQLiteRunStore(db_path).put(record))
+            restored = asyncio.run(SQLiteRunStore(db_path).get("run-1"))
+
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.result, {"answer": "SQLite", "confidence": 0.9})
+        self.assertEqual(restored.created_at, record.created_at)
+
+    def test_sqlite_run_store_tracks_schema_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = SQLiteRunStore(Path(tmpdir) / "runs.sqlite")
+
+            self.assertEqual(store.schema(), "1")
 
 
 if __name__ == "__main__":

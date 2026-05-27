@@ -35,14 +35,14 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 45 passing |
+| Tests | 55 passing |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
 | LLM adapter | OpenAI-compatible chat, mock model, signature retry |
 | Temporal | Required dependency, workflow/activity integration, parity test |
 | Live Temporal proof | Completed against SDK-managed local Temporal dev server |
-| Phase 1 API/CLI | Started: FastAPI shell, API keys, local run store, Typer CLI |
+| Phase 1 API/CLI | Started: FastAPI shell, API keys, SQLite/local run store, Typer CLI |
 | Deep research product | Mock-backed vertical slice only |
 | SaaS deployment | Not started |
 
@@ -52,11 +52,11 @@ Phase 0 runtime is honestly closed.
 python -m pip install -e .
 ```
 
-In this workspace, the bundled Python used for validation is:
+Run validation from the repository root:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'
-& 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+$env:PYTHONPATH='src'
+python -m unittest discover -s tests -v
 ```
 
 ## Quick Start
@@ -85,17 +85,17 @@ print(result.state.values["answer"])
 Run examples:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'
-& 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\01_simple_research.py
-& 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\02_parallel_dag.py
-& 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\03_hitl_resume.py
+$env:PYTHONPATH='src'
+python examples\01_simple_research.py
+python examples\02_parallel_dag.py
+python examples\03_hitl_resume.py
 ```
 
 Run the Temporal-backed example:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'
-& 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\01_simple_research.py --backend temporal
+$env:PYTHONPATH='src'
+python examples\01_simple_research.py --backend temporal
 ```
 
 The Temporal example uses the Temporal Python SDK's managed local dev server.
@@ -169,11 +169,11 @@ Started in Phase 1:
 - `POST /v1/runs`
 - `GET /v1/runs/{run_id}`
 - `x-api-key` authentication
-- local in-memory run store
+- local in-memory or SQLite run store
 - `prime-swarm health`
 - `prime-swarm research "question"`
 
-The Phase 1 run path is intentionally mock-backed. It proves the public contract before real search, Postgres, and product workflows are added.
+The Phase 1 run path is intentionally mock-backed. It proves the public contract before real search, Postgres, and product workflows are added. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
 
 ## Examples
 
@@ -189,14 +189,14 @@ The Phase 1 run path is intentionally mock-backed. It proves the public contract
 Latest validation:
 
 ```text
-51 tests passed
+55 tests passed
 ```
 
 Live Temporal proof:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'
-& 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\01_simple_research.py --backend temporal
+$env:PYTHONPATH='src'
+python examples\01_simple_research.py --backend temporal
 ```
 
 Result: completed successfully against the SDK-managed local Temporal dev server and returned the expected research output.
@@ -241,6 +241,7 @@ Run locally:
 
 ```powershell
 $env:PRIME_SWARM_API_KEY='dev-key'
+$env:PRIME_SWARM_RUN_DB='data/runs.sqlite'
 uvicorn prime_swarm_core.api.app:app --reload
 ```
 
@@ -259,4 +260,5 @@ CLI:
 prime-swarm health
 prime-swarm research "What is the heist rule?"
 prime-swarm research "What is the heist rule?" --json
+prime-swarm research "What is the heist rule?" --db data/runs.sqlite --json
 ```

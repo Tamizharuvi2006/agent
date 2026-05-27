@@ -17,7 +17,7 @@ The project rule is simple: learn from major agent frameworks, but do not blindl
 ## Current State
 
 - The workspace contains the manifest, handoff docs, P0, P1, P2, P3 implementation, and tests.
-- No git repository was detected at report time.
+- Git repository is now initialized and pushed to `origin/main`.
 - The user wants future work to follow the six heist rules exactly.
 
 ## Six Heist Rules
@@ -73,7 +73,7 @@ P0 foundation has started and currently includes:
 Validation command used:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+$env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
 Latest result: 10 tests passed.
@@ -91,7 +91,7 @@ P1 has started and currently includes:
 Validation command:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+$env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
 Latest result: 18 tests passed.
@@ -113,7 +113,7 @@ P2 has started and currently includes:
 Validation command:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+$env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
 Latest result: 24 tests passed.
@@ -134,7 +134,7 @@ P3 has started and currently includes:
 Validation command:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+$env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
 Latest result: 33 tests passed.
@@ -156,7 +156,7 @@ The first runtime hardening pass is implemented:
 Validation command:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+$env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
 Latest result: 36 tests passed.
@@ -181,7 +181,7 @@ The harder runtime checklist is now partially closed:
 Validation command:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+$env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
 Latest result: 42 tests passed.
@@ -189,9 +189,9 @@ Latest result: 42 tests passed.
 Example validation:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\01_simple_research.py
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\02_parallel_dag.py
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\03_hitl_resume.py
+$env:PYTHONPATH='src'; python examples\01_simple_research.py
+$env:PYTHONPATH='src'; python examples\02_parallel_dag.py
+$env:PYTHONPATH='src'; python examples\03_hitl_resume.py
 ```
 
 All three examples completed successfully.
@@ -208,7 +208,7 @@ All three examples completed successfully.
 
 The goal is not speed through imports. The goal is a clean local architecture with borrowed wisdom, clear credit, and tests proving our code works.
 
-For the next implementation pass, the best candidates are a persistent RunStore, HTTP-backed CLI mode, real search/retrieval inside the research graph, or a FastAPI smoke test that starts the app through Uvicorn.
+For the next implementation pass, the best candidates are HTTP-backed CLI mode, real search/retrieval inside the research graph, or a FastAPI smoke test that starts the app through Uvicorn.
 
 ## Public Launch State
 
@@ -238,16 +238,19 @@ Scope:
 - run create/get schemas: implemented.
 - local in-memory run store with Postgres-ready protocol: implemented.
 - simple mock-backed research graph exposed through API and CLI: implemented.
+- SQLite-backed run store: implemented.
+- `PRIME_SWARM_RUN_DB` API store selection: implemented.
+- CLI `--db` persistence option: implemented.
 
 Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
 
 Phase 1 validation:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+$env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 51 tests passed.
+Latest result: 55 tests passed.
 
 ## Temporal State
 
@@ -260,12 +263,12 @@ Temporal is now wired directly:
 - Parity test verifies the Temporal activity path and local `GraphRunner` produce the same output.
 - `examples/01_simple_research.py --backend temporal` runs against the SDK-managed local Temporal dev server and completed successfully.
 
-Latest result: 45 tests passed.
+Temporal integration report result: 45 tests passed at the time. Current full-suite result after Phase 1 persistence is 55 tests passed.
 
 Live Temporal proof command:
 
 ```powershell
-$env:PYTHONPATH='D:\projects\relyce\agent\src'; & 'C:\Users\aruvi\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' examples\01_simple_research.py --backend temporal
+$env:PYTHONPATH='src'; python examples\01_simple_research.py --backend temporal
 ```
 
 Result: returned the expected answer, confidence, evidence, question, and sources. The Temporal dev server emitted shutdown warnings during cleanup, but the workflow completed successfully.
