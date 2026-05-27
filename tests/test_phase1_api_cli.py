@@ -12,7 +12,7 @@ import httpx
 from typer.testing import CliRunner
 
 from prime_swarm_core.api import create_app
-from prime_swarm_core.cli.config import load_profile
+from prime_swarm_core.cli.config import CliProfileUpdate, load_profile, save_profile
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.cli.main import app as cli_app
 from prime_swarm_core.product import (
@@ -305,6 +305,42 @@ class TestPhase1Cli(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("profile not found: missing", result.output)
 
+    def test_cli_profile_set_creates_profile(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+
+            result = runner.invoke(
+                cli_app,
+                [
+                    "profile-set",
+                    "dev",
+                    "--config",
+                    str(config_path),
+                    "--api-url",
+                    "http://api.test",
+                    "--api-key",
+                    "secret",
+                    "--db",
+                    "data/runs.sqlite",
+                    "--source",
+                    "docs",
+                    "--web",
+                    "--top-k",
+                    "3",
+                ],
+            )
+            profile = load_profile("dev", config_path)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("saved profile 'dev'", result.stdout)
+        self.assertEqual(profile.api_url, "http://api.test")
+        self.assertEqual(profile.api_key, "secret")
+        self.assertEqual(profile.db, Path("data/runs.sqlite"))
+        self.assertEqual(profile.source, Path("docs"))
+        self.assertTrue(profile.web)
+        self.assertEqual(profile.top_k, 3)
+
 
 class TestCliConfig(unittest.TestCase):
     def test_load_profile_parses_supported_fields(self) -> None:
@@ -336,6 +372,26 @@ class TestCliConfig(unittest.TestCase):
         self.assertEqual(profile.source, Path("docs"))
         self.assertTrue(profile.web)
         self.assertEqual(profile.top_k, 3)
+
+    def test_save_profile_preserves_existing_fields_and_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            save_profile(
+                "dev",
+                CliProfileUpdate(api_url="http://api.test", api_key="secret", top_k=2),
+                config_path,
+            )
+            save_profile("other", CliProfileUpdate(source=Path("docs")), config_path)
+            save_profile("dev", CliProfileUpdate(web=True), config_path)
+
+            dev = load_profile("dev", config_path)
+            other = load_profile("other", config_path)
+
+        self.assertEqual(dev.api_url, "http://api.test")
+        self.assertEqual(dev.api_key, "secret")
+        self.assertEqual(dev.top_k, 2)
+        self.assertTrue(dev.web)
+        self.assertEqual(other.source, Path("docs"))
 
 
 class TestCliHttpClient(unittest.TestCase):

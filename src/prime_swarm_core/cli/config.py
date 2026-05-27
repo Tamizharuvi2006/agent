@@ -26,6 +26,16 @@ class CliProfile:
     top_k: int | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class CliProfileUpdate:
+    api_url: str | None = None
+    api_key: str | None = None
+    db: Path | None = None
+    source: Path | None = None
+    web: bool | None = None
+    top_k: int | None = None
+
+
 def default_config_path() -> Path:
     configured = os.getenv(CONFIG_ENV_VAR)
     if configured:
@@ -50,6 +60,29 @@ def load_profile(name: str | None, path: str | Path | None = None) -> CliProfile
     if not isinstance(raw_profile, dict):
         raise CliConfigError(f"profile not found: {name}")
     return _parse_profile(raw_profile)
+
+
+def save_profile(name: str, update: CliProfileUpdate, path: str | Path | None = None) -> Path:
+    config_path = Path(path).expanduser() if path else default_config_path()
+    data: dict[str, Any] = {"profiles": {}}
+    if config_path.exists():
+        data = _load_json(config_path)
+
+    profiles = data.setdefault("profiles", {})
+    if not isinstance(profiles, dict):
+        raise CliConfigError("config must contain a profiles object")
+
+    current = profiles.get(name, {})
+    if not isinstance(current, dict):
+        raise CliConfigError(f"profile is not an object: {name}")
+
+    next_profile = dict(current)
+    next_profile.update(_update_to_dict(update))
+    profiles[name] = next_profile
+
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return config_path
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -89,3 +122,22 @@ def _optional_path(value: Any) -> Path | None:
     if value in (None, ""):
         return None
     return Path(str(value)).expanduser()
+
+
+def _update_to_dict(update: CliProfileUpdate) -> dict[str, Any]:
+    data: dict[str, Any] = {}
+    if update.api_url is not None:
+        data["api_url"] = update.api_url
+    if update.api_key is not None:
+        data["api_key"] = update.api_key
+    if update.db is not None:
+        data["db"] = str(update.db)
+    if update.source is not None:
+        data["source"] = str(update.source)
+    if update.web is not None:
+        data["web"] = update.web
+    if update.top_k is not None:
+        if update.top_k < 1 or update.top_k > 20:
+            raise CliConfigError("profile top_k must be between 1 and 20")
+        data["top_k"] = update.top_k
+    return data

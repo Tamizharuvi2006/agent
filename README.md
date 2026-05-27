@@ -35,7 +35,7 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 72 passing |
+| Tests | 74 passing |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
@@ -155,7 +155,7 @@ This is not yet a deep research product. The runtime is the chassis, not the car
 Still missing for a product:
 
 - production FastAPI deployment and background worker mode
-- config writer command
+- profile list/delete commands
 - production API key management and user auth
 - Postgres persistence
 - live vendor web search run and browser tools
@@ -179,6 +179,7 @@ Started in Phase 1:
 - local file/directory retrieval through `source_path` or CLI `--source`
 - external HTTP JSON web search through `use_web_search` or CLI `--web`
 - CLI config profiles through `--profile` and `--config`
+- CLI config writer through `profile-set`
 
 The Phase 1 run path now supports local file/directory retrieval and a vendor-neutral HTTP JSON search provider. A gated live search smoke test exists, but it only runs when provider environment variables are set. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
 
@@ -196,7 +197,7 @@ The Phase 1 run path now supports local file/directory retrieval and a vendor-ne
 Latest validation:
 
 ```text
-72 tests passed
+74 tests passed
 ```
 
 Live Temporal proof:
@@ -305,6 +306,23 @@ prime-swarm research "What is the heist rule?" --db data/runs.sqlite --json
 prime-swarm research "What is the heist rule?" --profile local --config .prime-swarm.json --json
 prime-swarm health --api-url http://127.0.0.1:8000
 prime-swarm research "What is the heist rule?" --web --api-url http://127.0.0.1:8000 --api-key dev-key --json
+```
+
+Write a CLI profile:
+
+```powershell
+prime-swarm profile-set local `
+  --config .prime-swarm.json `
+  --db data/runs.sqlite `
+  --source docs `
+  --top-k 4
+
+prime-swarm profile-set api `
+  --config .prime-swarm.json `
+  --api-url http://127.0.0.1:8000 `
+  --api-key dev-key `
+  --web `
+  --top-k 4
 ```
 
 Example CLI config:
