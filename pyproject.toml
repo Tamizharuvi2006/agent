@@ -1,0 +1,17 @@
+[project]
+name = "prime-swarm-core"
+version = "0.1.0"
+description = "A small Python runtime for deep research agents: graph commands, checkpoints, tracing, validation, and Temporal."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.0",
+  "temporalio>=1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
