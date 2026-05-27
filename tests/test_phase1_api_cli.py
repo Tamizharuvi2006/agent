@@ -8,9 +8,11 @@ import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+import httpx
 from typer.testing import CliRunner
 
 from prime_swarm_core.api import create_app
+from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.cli.main import app as cli_app
 from prime_swarm_core.product import InMemoryRunStore, RunRecord, SQLiteRunStore
 
@@ -108,6 +110,83 @@ class TestPhase1Cli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIsNotNone(restored)
         self.assertEqual(restored.question, "Persist me")
+
+    def test_cli_health_can_call_http_api(self) -> None:
+        runner = CliRunner()
+
+        with patch("prime_swarm_core.cli.main.PrimeSwarmHttpClient") as client_type:
+            client_type.return_value.health.return_value = {"status": "ok"}
+            result = runner.invoke(cli_app, ["health", "--api-url", "http://api.test"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.stdout.strip(), "ok")
+        client_type.assert_called_once_with("http://api.test")
+
+    def test_cli_research_can_call_http_api(self) -> None:
+        runner = CliRunner()
+        api_payload = {
+            "run_id": "run-http",
+            "question": "Remote question",
+            "status": "completed",
+            "result": {"answer": "Remote answer"},
+            "error": None,
+            "created_at": "2026-05-27T00:00:00+00:00",
+            "updated_at": "2026-05-27T00:00:00+00:00",
+        }
+
+        with patch("prime_swarm_core.cli.main.PrimeSwarmHttpClient") as client_type:
+            client_type.return_value.create_run.return_value = api_payload
+            result = runner.invoke(
+                cli_app,
+                ["research", "Remote question", "--api-url", "http://api.test", "--api-key", "secret", "--json"],
+            )
+            payload = json.loads(result.stdout)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(payload["run_id"], "run-http")
+        client_type.assert_called_once_with("http://api.test", api_key="secret")
+        client_type.return_value.create_run.assert_called_once_with("Remote question")
+
+
+class TestCliHttpClient(unittest.TestCase):
+    def test_http_client_creates_run_with_api_key(self) -> None:
+        seen: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["path"] = request.url.path
+            seen["api_key"] = request.headers["x-api-key"]
+            return httpx.Response(
+                200,
+                json={
+                    "run_id": "run-1",
+                    "question": "q",
+                    "status": "completed",
+                    "result": {"answer": "a"},
+                    "error": None,
+                    "created_at": "2026-05-27T00:00:00+00:00",
+                    "updated_at": "2026-05-27T00:00:00+00:00",
+                },
+            )
+
+        client = PrimeSwarmHttpClient(
+            "http://api.test",
+            api_key="secret",
+            transport=httpx.MockTransport(handler),
+        )
+
+        payload = client.create_run("q")
+
+        self.assertEqual(payload["run_id"], "run-1")
+        self.assertEqual(seen, {"path": "/v1/runs", "api_key": "secret"})
+
+    def test_http_client_raises_helpful_status_error(self) -> None:
+        client = PrimeSwarmHttpClient(
+            "http://api.test",
+            transport=httpx.MockTransport(lambda request: httpx.Response(401, json={"detail": "invalid api key"})),
+        )
+
+        with self.assertRaisesRegex(CliHttpError, "401: invalid api key"):
+            client.create_run("q")
 
 
 class TestSQLiteRunStore(unittest.TestCase):

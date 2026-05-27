@@ -35,14 +35,14 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 55 passing |
+| Tests | 59 passing |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
 | LLM adapter | OpenAI-compatible chat, mock model, signature retry |
 | Temporal | Required dependency, workflow/activity integration, parity test |
 | Live Temporal proof | Completed against SDK-managed local Temporal dev server |
-| Phase 1 API/CLI | Started: FastAPI shell, API keys, SQLite/local run store, Typer CLI |
+| Phase 1 API/CLI | Started: FastAPI shell, API keys, SQLite/local run store, local/HTTP Typer CLI |
 | Deep research product | Mock-backed vertical slice only |
 | SaaS deployment | Not started |
 
@@ -153,7 +153,7 @@ This is not yet a deep research product. The runtime is the chassis, not the car
 Still missing for a product:
 
 - production FastAPI deployment and background worker mode
-- HTTP-backed CLI mode and config profiles
+- CLI config profiles
 - production API key management and user auth
 - Postgres persistence
 - real web/search/browser tools
@@ -172,6 +172,8 @@ Started in Phase 1:
 - local in-memory or SQLite run store
 - `prime-swarm health`
 - `prime-swarm research "question"`
+- `prime-swarm health --api-url http://127.0.0.1:8000`
+- `prime-swarm research "question" --api-url http://127.0.0.1:8000 --api-key dev-key`
 
 The Phase 1 run path is intentionally mock-backed. It proves the public contract before real search, Postgres, and product workflows are added. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
 
@@ -189,7 +191,7 @@ The Phase 1 run path is intentionally mock-backed. It proves the public contract
 Latest validation:
 
 ```text
-55 tests passed
+59 tests passed
 ```
 
 Live Temporal proof:
@@ -261,4 +263,6 @@ prime-swarm health
 prime-swarm research "What is the heist rule?"
 prime-swarm research "What is the heist rule?" --json
 prime-swarm research "What is the heist rule?" --db data/runs.sqlite --json
+prime-swarm health --api-url http://127.0.0.1:8000
+prime-swarm research "What is the heist rule?" --api-url http://127.0.0.1:8000 --api-key dev-key --json
 ```

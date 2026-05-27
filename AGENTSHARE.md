@@ -208,7 +208,7 @@ All three examples completed successfully.
 
 The goal is not speed through imports. The goal is a clean local architecture with borrowed wisdom, clear credit, and tests proving our code works.
 
-For the next implementation pass, the best candidates are HTTP-backed CLI mode, real search/retrieval inside the research graph, or a FastAPI smoke test that starts the app through Uvicorn.
+For the next implementation pass, the best candidates are real search/retrieval inside the research graph, a FastAPI smoke test that starts the app through Uvicorn, or CLI config profiles.
 
 ## Public Launch State
 
@@ -241,6 +241,9 @@ Scope:
 - SQLite-backed run store: implemented.
 - `PRIME_SWARM_RUN_DB` API store selection: implemented.
 - CLI `--db` persistence option: implemented.
+- HTTP-backed CLI mode: implemented.
+- `PRIME_SWARM_API_URL` and `--api-url` CLI service selection: implemented.
+- `PRIME_SWARM_API_KEY` and `--api-key` CLI HTTP auth: implemented.
 
 Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
 
@@ -250,7 +253,7 @@ Phase 1 validation:
 $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 55 tests passed.
+Latest result: 59 tests passed.
 
 ## Temporal State
 
