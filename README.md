@@ -35,7 +35,7 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 67 passing |
+| Tests | 68 passing |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
@@ -43,6 +43,7 @@ Phase 0 runtime is honestly closed.
 | Temporal | Required dependency, workflow/activity integration, parity test |
 | Live Temporal proof | Completed against SDK-managed local Temporal dev server |
 | Live API proof | Uvicorn smoke test covers real HTTP API plus HTTP CLI |
+| Live search proof | Gated smoke harness added; requires provider env vars |
 | Phase 1 API/CLI | Started: FastAPI shell, API keys, SQLite/local run store, local/HTTP Typer CLI |
 | Deep research product | Local retrieval plus provider-backed web-search vertical slice |
 | SaaS deployment | Not started |
@@ -157,7 +158,7 @@ Still missing for a product:
 - CLI config profiles
 - production API key management and user auth
 - Postgres persistence
-- live vendor web search proof and browser tools
+- live vendor web search run and browser tools
 - knowledge graph
 - multi-agent debate wired into product workflows
 - eval harness and self-learning loop
@@ -178,7 +179,7 @@ Started in Phase 1:
 - local file/directory retrieval through `source_path` or CLI `--source`
 - external HTTP JSON web search through `use_web_search` or CLI `--web`
 
-The Phase 1 run path now supports local file/directory retrieval and a vendor-neutral HTTP JSON search provider. Live vendor search credentials have not been proven yet. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
+The Phase 1 run path now supports local file/directory retrieval and a vendor-neutral HTTP JSON search provider. A gated live search smoke test exists, but it only runs when provider environment variables are set. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
 
 ## Examples
 
@@ -194,7 +195,7 @@ The Phase 1 run path now supports local file/directory retrieval and a vendor-ne
 Latest validation:
 
 ```text
-67 tests passed
+68 tests passed
 ```
 
 Live Temporal proof:
@@ -214,6 +215,18 @@ python -m unittest tests.test_phase1_live_api_smoke -v
 ```
 
 Result: starts Uvicorn on localhost, creates a source-backed run over HTTP, and calls the same server through the CLI.
+
+Live search smoke:
+
+```powershell
+$env:PYTHONPATH='src'
+$env:RUN_LIVE_SEARCH_TESTS='1'
+$env:PRIME_SWARM_SEARCH_URL='https://search.example.com/query'
+$env:PRIME_SWARM_SEARCH_API_KEY='search-key'
+python -m unittest tests.test_live_search_smoke -v
+```
+
+Result without those env vars: skipped. Result with real compatible provider credentials: calls the provider and runs a web-backed research flow.
 
 ## Design Rules
 

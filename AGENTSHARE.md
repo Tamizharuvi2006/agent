@@ -252,7 +252,8 @@ Scope:
 - HTTP JSON search provider: implemented.
 - API `use_web_search`: implemented.
 - CLI `--web`: implemented.
-- Live vendor search proof: not done.
+- Gated live vendor search smoke harness: implemented.
+- Live vendor search run: not done in this workspace because no provider endpoint/key is configured.
 
 Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
 
@@ -262,7 +263,13 @@ Phase 1 validation:
 $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 67 tests passed.
+Latest result: 68 tests passed.
+
+Live search smoke command:
+
+```powershell
+$env:PYTHONPATH='src'; $env:RUN_LIVE_SEARCH_TESTS='1'; $env:PRIME_SWARM_SEARCH_URL='<provider-url>'; $env:PRIME_SWARM_SEARCH_API_KEY='<provider-key>'; python -m unittest tests.test_live_search_smoke -v
+```
 
 Live API smoke command:
 
