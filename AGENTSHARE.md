@@ -254,6 +254,8 @@ Scope:
 - CLI `--web`: implemented.
 - Gated live vendor search smoke harness: implemented.
 - Live vendor search run: not done in this workspace because no provider endpoint/key is configured.
+- CLI config profiles: implemented.
+- CLI `--profile` and `--config`: implemented.
 
 Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
 
@@ -263,7 +265,7 @@ Phase 1 validation:
 $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 68 tests passed.
+Latest result: 72 tests passed.
 
 Live search smoke command:
 

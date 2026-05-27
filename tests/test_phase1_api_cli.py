@@ -12,6 +12,7 @@ import httpx
 from typer.testing import CliRunner
 
 from prime_swarm_core.api import create_app
+from prime_swarm_core.cli.config import load_profile
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.cli.main import app as cli_app
 from prime_swarm_core.product import (
@@ -242,6 +243,99 @@ class TestPhase1Cli(unittest.TestCase):
             use_web_search=True,
             top_k=3,
         )
+
+    def test_cli_health_can_use_config_profile(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(
+                json.dumps({"profiles": {"dev": {"api_url": "http://profile.test"}}}),
+                encoding="utf-8",
+            )
+
+            with patch("prime_swarm_core.cli.main.PrimeSwarmHttpClient") as client_type:
+                client_type.return_value.health.return_value = {"status": "ok"}
+                result = runner.invoke(cli_app, ["health", "--profile", "dev", "--config", str(config_path)])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.stdout.strip(), "ok")
+        client_type.assert_called_once_with("http://profile.test")
+
+    def test_cli_research_can_use_config_profile_for_local_defaults(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = Path(tmpdir) / "notes.md"
+            db_path = Path(tmpdir) / "runs.sqlite"
+            config_path = Path(tmpdir) / "config.json"
+            source.write_text("# Profile\nProfiles remove repeated CLI flags.", encoding="utf-8")
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "profiles": {
+                            "local": {
+                                "db": str(db_path),
+                                "source": str(source),
+                                "top_k": 2,
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = runner.invoke(
+                cli_app,
+                ["research", "What removes repeated flags?", "--profile", "local", "--config", str(config_path), "--json"],
+            )
+            payload = json.loads(result.stdout)
+            restored = asyncio.run(SQLiteRunStore(db_path).get(payload["run_id"]))
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Profiles remove repeated", payload["result"]["evidence"])
+        self.assertIsNotNone(restored)
+
+    def test_cli_missing_config_profile_is_clear(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"profiles": {}}), encoding="utf-8")
+
+            result = runner.invoke(cli_app, ["health", "--profile", "missing", "--config", str(config_path)])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("profile not found: missing", result.output)
+
+
+class TestCliConfig(unittest.TestCase):
+    def test_load_profile_parses_supported_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "profiles": {
+                            "dev": {
+                                "api_url": "http://api.test",
+                                "api_key": "secret",
+                                "db": "data/runs.sqlite",
+                                "source": "docs",
+                                "web": True,
+                                "top_k": 3,
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            profile = load_profile("dev", config_path)
+
+        self.assertEqual(profile.api_url, "http://api.test")
+        self.assertEqual(profile.api_key, "secret")
+        self.assertEqual(profile.db, Path("data/runs.sqlite"))
+        self.assertEqual(profile.source, Path("docs"))
+        self.assertTrue(profile.web)
+        self.assertEqual(profile.top_k, 3)
 
 
 class TestCliHttpClient(unittest.TestCase):
