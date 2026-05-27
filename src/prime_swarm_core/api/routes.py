@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from prime_swarm_core.api.auth import require_api_key
 from prime_swarm_core.api.schemas import CreateRunRequest, HealthResponse, RunResponse
-from prime_swarm_core.product import RunStore, run_research
+from prime_swarm_core.product import SearchProvider, RunStore, run_research
 
 
 router = APIRouter()
@@ -16,14 +16,29 @@ def get_store(request: Request) -> RunStore:
     return request.app.state.run_store
 
 
+def get_search_provider(request: Request) -> SearchProvider | None:
+    return request.app.state.search_provider
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     return HealthResponse()
 
 
 @router.post("/v1/runs", response_model=RunResponse, dependencies=[Depends(require_api_key)])
-async def create_run(payload: CreateRunRequest, store: RunStore = Depends(get_store)) -> RunResponse:
-    record = await run_research(payload.question, store, source_path=payload.source_path, top_k=payload.top_k)
+async def create_run(
+    payload: CreateRunRequest,
+    store: RunStore = Depends(get_store),
+    search_provider: SearchProvider | None = Depends(get_search_provider),
+) -> RunResponse:
+    record = await run_research(
+        payload.question,
+        store,
+        source_path=payload.source_path,
+        search_provider=search_provider,
+        use_web_search=payload.use_web_search,
+        top_k=payload.top_k,
+    )
     return RunResponse(**record.as_dict())
 
 

@@ -11,7 +11,9 @@ from prime_swarm_core.data import Document, load_directory, load_file, markdown_
 from prime_swarm_core.graph import Command, GraphRunner
 from prime_swarm_core.llm import MockChatModel, call_signature
 from prime_swarm_core.product.runs import RunRecord, RunStore
+from prime_swarm_core.product.search import SearchProvider, SearchProviderNotConfigured
 from prime_swarm_core.prompts import FieldSpec, Signature
+from prime_swarm_core.quality import rerank_sources
 from prime_swarm_core.retrievers import InMemoryKeywordRetriever
 
 
@@ -30,6 +32,8 @@ async def run_research(
     *,
     run_id: str | None = None,
     source_path: str | Path | None = None,
+    search_provider: SearchProvider | None = None,
+    use_web_search: bool = False,
     top_k: int = 4,
 ) -> RunRecord:
     run_id = run_id or uuid4().hex
@@ -43,6 +47,8 @@ async def run_research(
         evidence, sources = await _retrieve_evidence(
             state.values["question"],
             source_path=source_path,
+            search_provider=search_provider,
+            use_web_search=use_web_search,
             top_k=top_k,
         )
         return Command.to("summarize", evidence=evidence, sources=sources)
@@ -80,8 +86,13 @@ async def _retrieve_evidence(
     question: str,
     *,
     source_path: str | Path | None,
+    search_provider: SearchProvider | None,
+    use_web_search: bool,
     top_k: int,
 ) -> tuple[str, list[dict[str, object]]]:
+    if use_web_search:
+        return await _retrieve_web_evidence(question, search_provider=search_provider, top_k=top_k)
+
     if source_path is None:
         sources = [
             {"source": "mock://official", "title": "Official-style source", "rank": 1},
@@ -119,6 +130,38 @@ async def _retrieve_evidence(
                 }
             )
             seen_sources.add(source)
+    return "\n\n".join(evidence_lines), sources
+
+
+async def _retrieve_web_evidence(
+    question: str,
+    *,
+    search_provider: SearchProvider | None,
+    top_k: int,
+) -> tuple[str, list[dict[str, object]]]:
+    if search_provider is None:
+        raise SearchProviderNotConfigured("web search requested but no search provider is configured")
+
+    results = await search_provider.search(question, k=top_k)
+    ranked = rerank_sources(results, needs_freshness=True)[:top_k]
+    if not ranked:
+        return (
+            f"No web search results matched the question: {question}",
+            [{"source": "web://empty", "title": "No matching web result", "rank": 1}],
+        )
+
+    evidence_lines: list[str] = []
+    sources: list[dict[str, object]] = []
+    for index, result in enumerate(ranked, start=1):
+        evidence_lines.append(f"[{index}] {result.title}: {result.snippet} ({result.url})")
+        sources.append(
+            {
+                "source": result.url,
+                "title": result.title,
+                "rank": index,
+                "score": result.score,
+            }
+        )
     return "\n\n".join(evidence_lines), sources
 
 

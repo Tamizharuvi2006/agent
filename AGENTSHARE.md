@@ -208,7 +208,7 @@ All three examples completed successfully.
 
 The goal is not speed through imports. The goal is a clean local architecture with borrowed wisdom, clear credit, and tests proving our code works.
 
-For the next implementation pass, the best candidates are external web search integration, a FastAPI smoke test that starts the app through Uvicorn, or CLI config profiles.
+For the next implementation pass, the best candidates are a live vendor search smoke test, browser integration, or CLI config profiles.
 
 ## Public Launch State
 
@@ -248,6 +248,11 @@ Scope:
 - API `source_path` and `top_k`: implemented.
 - CLI `--source` and `--top-k`: implemented.
 - Live Uvicorn smoke test for API plus HTTP CLI: implemented.
+- Vendor-neutral `SearchProvider` protocol: implemented.
+- HTTP JSON search provider: implemented.
+- API `use_web_search`: implemented.
+- CLI `--web`: implemented.
+- Live vendor search proof: not done.
 
 Do not claim Postgres, hosted SaaS, or real search/browser tooling until those are actually wired.
 
@@ -257,7 +262,7 @@ Phase 1 validation:
 $env:PYTHONPATH='src'; python -m unittest discover -s tests -v
 ```
 
-Latest result: 63 tests passed.
+Latest result: 67 tests passed.
 
 Live API smoke command:
 

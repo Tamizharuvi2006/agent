@@ -14,7 +14,15 @@ from typer.testing import CliRunner
 from prime_swarm_core.api import create_app
 from prime_swarm_core.cli.http_client import CliHttpError, PrimeSwarmHttpClient
 from prime_swarm_core.cli.main import app as cli_app
-from prime_swarm_core.product import InMemoryRunStore, RunRecord, SQLiteRunStore, run_research
+from prime_swarm_core.product import (
+    HTTPJSONSearchProvider,
+    InMemoryRunStore,
+    RunRecord,
+    SQLiteRunStore,
+    StaticSearchProvider,
+    run_research,
+)
+from prime_swarm_core.quality import SearchResult
 
 
 class TestPhase1Api(unittest.TestCase):
@@ -95,6 +103,45 @@ class TestPhase1Api(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Steal patterns", payload["result"]["evidence"])
         self.assertEqual(payload["result"]["sources"][0]["title"], "Heist Rule")
+
+    def test_create_run_can_use_web_search_provider(self) -> None:
+        provider = StaticSearchProvider(
+            [
+                SearchResult(
+                    url="https://docs.example.com/runtime",
+                    title="Runtime docs",
+                    snippet="External web search can feed the research graph.",
+                    score=0.5,
+                )
+            ]
+        )
+        client = TestClient(create_app(InMemoryRunStore(), search_provider=provider))
+
+        response = client.post(
+            "/v1/runs",
+            json={"question": "What feeds the graph?", "use_web_search": True},
+            headers={"x-api-key": "dev-key"},
+        )
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["status"], "completed")
+        self.assertIn("External web search", payload["result"]["evidence"])
+        self.assertEqual(payload["result"]["sources"][0]["source"], "https://docs.example.com/runtime")
+
+    def test_web_search_without_provider_is_reported_honestly(self) -> None:
+        client = TestClient(create_app(InMemoryRunStore()))
+
+        response = client.post(
+            "/v1/runs",
+            json={"question": "What is current?", "use_web_search": True},
+            headers={"x-api-key": "dev-key"},
+        )
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["status"], "failed")
+        self.assertIn("no search provider", payload["error"])
 
 
 class TestPhase1Cli(unittest.TestCase):
@@ -180,6 +227,7 @@ class TestPhase1Cli(unittest.TestCase):
                     "docs",
                     "--top-k",
                     "3",
+                    "--web",
                     "--json",
                 ],
             )
@@ -188,7 +236,12 @@ class TestPhase1Cli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(payload["run_id"], "run-http")
         client_type.assert_called_once_with("http://api.test", api_key="secret")
-        client_type.return_value.create_run.assert_called_once_with("Remote question", source_path="docs", top_k=3)
+        client_type.return_value.create_run.assert_called_once_with(
+            "Remote question",
+            source_path="docs",
+            use_web_search=True,
+            top_k=3,
+        )
 
 
 class TestCliHttpClient(unittest.TestCase):
@@ -219,11 +272,11 @@ class TestCliHttpClient(unittest.TestCase):
             transport=httpx.MockTransport(handler),
         )
 
-        payload = client.create_run("q", source_path="docs", top_k=3)
+        payload = client.create_run("q", source_path="docs", use_web_search=True, top_k=3)
 
         self.assertEqual(payload["run_id"], "run-1")
         self.assertEqual(seen, {"path": "/v1/runs", "api_key": "secret"})
-        self.assertEqual(body, {"question": "q", "source_path": "docs", "top_k": 3})
+        self.assertEqual(body, {"question": "q", "source_path": "docs", "top_k": 3, "use_web_search": True})
 
     def test_http_client_raises_helpful_status_error(self) -> None:
         client = PrimeSwarmHttpClient(
@@ -274,6 +327,67 @@ class TestLocalResearchRetrieval(unittest.TestCase):
         self.assertEqual(record.status, "completed")
         self.assertIn("Steal patterns", record.result["evidence"])
         self.assertEqual(record.result["sources"][0]["title"], "Heist Manifest")
+
+
+class TestExternalWebSearch(unittest.TestCase):
+    def test_run_research_uses_ranked_web_search_results(self) -> None:
+        provider = StaticSearchProvider(
+            [
+                SearchResult(
+                    url="https://medium.com/noisy",
+                    title="Noisy blog",
+                    snippet="Less authoritative note.",
+                    score=0.9,
+                ),
+                SearchResult(
+                    url="https://docs.example.com/official",
+                    title="Official docs",
+                    snippet="Authoritative web evidence.",
+                    score=0.6,
+                ),
+            ]
+        )
+
+        record = asyncio.run(
+            run_research("What is authoritative?", InMemoryRunStore(), search_provider=provider, use_web_search=True)
+        )
+
+        self.assertEqual(record.status, "completed")
+        self.assertIn("Authoritative web evidence", record.result["evidence"])
+        self.assertEqual(record.result["sources"][0]["title"], "Official docs")
+
+    def test_http_json_search_provider_parses_results(self) -> None:
+        seen: dict[str, object] = {}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            seen["authorization"] = request.headers["authorization"]
+            seen["body"] = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "url": "https://example.com/a",
+                            "title": "A",
+                            "snippet": "Alpha",
+                            "score": 0.4,
+                            "published_date": "2026-05-20",
+                        }
+                    ]
+                },
+            )
+
+        provider = HTTPJSONSearchProvider(
+            "https://search.example.test/query",
+            api_key="search-key",
+            transport=httpx.MockTransport(handler),
+        )
+
+        results = asyncio.run(provider.search("alpha", k=2))
+
+        self.assertEqual(results[0].url, "https://example.com/a")
+        self.assertEqual(seen["authorization"], "Bearer search-key")
+        self.assertEqual(seen["body"], {"query": "alpha", "k": 2})
 
 
 if __name__ == "__main__":

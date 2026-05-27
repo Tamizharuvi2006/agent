@@ -35,7 +35,7 @@ Phase 0 runtime is honestly closed.
 | Area | Status |
 |---|---|
 | P0-P3 pattern surface | Done |
-| Tests | 63 passing |
+| Tests | 67 passing |
 | SQLite checkpointing | Done |
 | Graph runner | Resume, fan-out, interrupts, guards |
 | Tracing | JSONL, OTEL-shaped spans, optional OTEL adapter, viewer |
@@ -44,7 +44,7 @@ Phase 0 runtime is honestly closed.
 | Live Temporal proof | Completed against SDK-managed local Temporal dev server |
 | Live API proof | Uvicorn smoke test covers real HTTP API plus HTTP CLI |
 | Phase 1 API/CLI | Started: FastAPI shell, API keys, SQLite/local run store, local/HTTP Typer CLI |
-| Deep research product | Local retrieval vertical slice only |
+| Deep research product | Local retrieval plus provider-backed web-search vertical slice |
 | SaaS deployment | Not started |
 
 ## Install
@@ -157,7 +157,7 @@ Still missing for a product:
 - CLI config profiles
 - production API key management and user auth
 - Postgres persistence
-- real web/search/browser tools
+- live vendor web search proof and browser tools
 - knowledge graph
 - multi-agent debate wired into product workflows
 - eval harness and self-learning loop
@@ -176,8 +176,9 @@ Started in Phase 1:
 - `prime-swarm health --api-url http://127.0.0.1:8000`
 - `prime-swarm research "question" --api-url http://127.0.0.1:8000 --api-key dev-key`
 - local file/directory retrieval through `source_path` or CLI `--source`
+- external HTTP JSON web search through `use_web_search` or CLI `--web`
 
-The Phase 1 run path now supports local file and directory retrieval. It still does not call a live web search provider. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
+The Phase 1 run path now supports local file/directory retrieval and a vendor-neutral HTTP JSON search provider. Live vendor search credentials have not been proven yet. Set `PRIME_SWARM_RUN_DB` or pass CLI `--db` when local run records should survive process restarts.
 
 ## Examples
 
@@ -193,7 +194,7 @@ The Phase 1 run path now supports local file and directory retrieval. It still d
 Latest validation:
 
 ```text
-63 tests passed
+67 tests passed
 ```
 
 Live Temporal proof:
@@ -255,6 +256,8 @@ Run locally:
 ```powershell
 $env:PRIME_SWARM_API_KEY='dev-key'
 $env:PRIME_SWARM_RUN_DB='data/runs.sqlite'
+$env:PRIME_SWARM_SEARCH_URL='https://search.example.com/query'
+$env:PRIME_SWARM_SEARCH_API_KEY='search-key'
 uvicorn prime_swarm_core.api.app:app --reload
 ```
 
@@ -283,7 +286,8 @@ prime-swarm health
 prime-swarm research "What is the heist rule?"
 prime-swarm research "What is the heist rule?" --json
 prime-swarm research "What is the heist rule?" --source docs --json
+prime-swarm research "What is the heist rule?" --web --json
 prime-swarm research "What is the heist rule?" --db data/runs.sqlite --json
 prime-swarm health --api-url http://127.0.0.1:8000
-prime-swarm research "What is the heist rule?" --source docs --api-url http://127.0.0.1:8000 --api-key dev-key --json
+prime-swarm research "What is the heist rule?" --web --api-url http://127.0.0.1:8000 --api-key dev-key --json
 ```

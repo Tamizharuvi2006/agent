@@ -33,9 +33,10 @@ class PrimeSwarmHttpClient:
         question: str,
         *,
         source_path: str | None = None,
+        use_web_search: bool = False,
         top_k: int = 4,
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {"question": question, "top_k": top_k}
+        payload: dict[str, Any] = {"question": question, "top_k": top_k, "use_web_search": use_web_search}
         if source_path:
             payload["source_path"] = source_path
         return self._request("POST", "/v1/runs", json=payload)

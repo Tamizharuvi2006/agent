@@ -38,6 +38,7 @@ def research(
     api_url: str | None = typer.Option(None, "--api-url", help="Call a running API service."),
     api_key: str | None = typer.Option(None, "--api-key", help="API key for HTTP mode."),
     source: Path | None = typer.Option(None, "--source", help="Read evidence from this local file or directory."),
+    web: bool = typer.Option(False, "--web", help="Use configured external web search."),
     top_k: int = typer.Option(4, "--top-k", min=1, max=20, help="Number of source chunks to retrieve."),
 ) -> None:
     """Run a mock-backed local research flow."""
@@ -48,11 +49,11 @@ def research(
             record = PrimeSwarmHttpClient(
                 resolved_api_url,
                 api_key=api_key or os.getenv("PRIME_SWARM_API_KEY") or "dev-key",
-            ).create_run(question, source_path=str(source) if source else None, top_k=top_k)
+            ).create_run(question, source_path=str(source) if source else None, use_web_search=web, top_k=top_k)
             output = record
         else:
             store = SQLiteRunStore(db) if db else InMemoryRunStore()
-            output = (await run_research(question, store, source_path=source, top_k=top_k)).as_dict()
+            output = (await run_research(question, store, source_path=source, use_web_search=web, top_k=top_k)).as_dict()
         if json_output:
             typer.echo(json.dumps(output, sort_keys=True))
         else:
